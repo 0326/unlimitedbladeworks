@@ -1,18 +1,31 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { AppHeader } from "../../components/AppHeader";
+import { Compass } from "../../components/Compass";
+import { FilterPanel } from "../../components/FilterPanel";
+import { EMPTY_FILTER, isBladeVisible, type FieldFilter } from "../../lib/fieldFilter";
 import { SceneErrorBoundary } from "../../components/SceneErrorBoundary";
 import { StaticField } from "../../components/StaticField";
 import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion";
-import { fetchBladeList, type BladeSummary } from "../../lib/api";
-import { BladeField } from "../../scene/BladeField";
+import {
+  fetchBladeDetail,
+  fetchBladeList,
+  type BladeDetail,
+  type BladeSummary,
+} from "../../lib/api";
+import { BladeField, type LabelAnchor } from "../../scene/BladeField";
 import type { ArtifactBladeInfo } from "../../scene/ArtifactBlade";
 import { detectWebGL2 } from "../../scene/capability";
+import type { FieldMode } from "../../scene/FieldCamera";
 import { parseFieldParams } from "../../scene/fieldParams";
 import { ARTIFACT_ANCHORS, terrainHeight } from "../../scene/placement";
 import { QUALITY_PARAMS, resolveInitialTier, type QualityTier } from "../../scene/quality";
 import type { FieldDebugData } from "../../scene/debug";
 
 const TIER_STORAGE_KEY = "ubw-field-tier";
+
+const HOME_BADGE = { num: "01", en: "Home", zh: "剑之荒原" } as const;
+const EXPLORE_BADGE = { num: "02", en: "Explore", zh: "剑丘探索" } as const;
 
 function readStoredTier(): QualityTier | null {
   try {
@@ -23,7 +36,15 @@ function readStoredTier(): QualityTier | null {
   }
 }
 
-export default function BladeFieldPage() {
+/**
+ * `/`（01 Home）与 `/explore`（02 Explore）共用同一 3D 场景：
+ * ENTER THE ARCHIVE → hero 淡出 + 相机推进 → 探索 UI 浮现（设计稿 01→02 空间转场）。
+ */
+export default function BladeFieldPage({
+  initialMode = "home",
+}: {
+  initialMode?: "home" | "explore";
+}) {
   const navigate = useNavigate();
 
   // URL 参数只在进入页面时读取一次（阶梯测试与手动档位入口）
@@ -47,7 +68,6 @@ export default function BladeFieldPage() {
   const [degradeReason, setDegradeReason] = useState<string | null>(null);
   const effectiveTier: QualityTier = webgl2 ? tier : "static";
 
-  // 档位手动切换（Balanced / Low / Static 三档，设计文档 §11）
   const selectTier = useCallback((next: QualityTier) => {
     setTier(next);
     setDegradeReason(null);
@@ -65,22 +85,38 @@ export default function BladeFieldPage() {
 
   const instanceCount = config.instancesOverride ?? QUALITY_PARAMS[effectiveTier].ambientBlades;
 
-  // 开场：仅 balanced 且非 reduced-motion；可跳过（Escape / 按钮）。
-  // introPlayed 只在完成/跳过时写入一次；overlay 显示由 introEnabled && !introPlayed 派生，
-  // 避免 effect 内同步 setState（切档或 reduced-motion 变化时自动隐藏）。
-  const introEnabled = effectiveTier === "balanced" && !prefersReducedMotion;
-  const [introPlayed, setIntroPlayed] = useState(false);
-  const introVisible = introEnabled && !introPlayed;
+  // ---------- 模式机：home → transition → explore ----------
+  // 动画过渡只在 balanced 且非 reduced-motion 时播放，其余直接落到 explore。
+  const cinematic = effectiveTier === "balanced" && !prefersReducedMotion;
+  const [mode, setMode] = useState<FieldMode>(initialMode);
+
+  const enterExplore = useCallback(() => {
+    setMode((current) => {
+      if (current !== "home") return current;
+      return cinematic ? "transition" : "explore";
+    });
+    // 深链同步：进入探索后 URL 变为 /explore（native replaceState 避免路由重挂载 3D 场景）
+    if (window.location.pathname === "/") {
+      window.history.replaceState(null, "", `/explore${window.location.search}`);
+    }
+  }, [cinematic]);
+
+  // Escape：home 等价 ENTER；explore 中关闭选中卡
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   useEffect(() => {
-    if (introPlayed) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIntroPlayed(true);
+      if (e.key !== "Escape") return;
+      setSelectedSlug((selected) => {
+        if (selected) return null;
+        enterExplore();
+        return selected;
+      });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [introPlayed]);
+  }, [enterExplore]);
 
-  // 藏品列表：驱动 artifact 实体、hover 卡与 Static 路径
+  // ---------- 藏品列表 ----------
   const [bladeList, setBladeList] = useState<BladeSummary[] | null>(null);
   const [listError, setListError] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
@@ -120,8 +156,26 @@ export default function BladeFieldPage() {
     });
   }, [bladeList]);
 
-  // hover 状态：3D 拾取与 HTML 按钮共享（键盘 focus 同步高亮）
+  // ---------- 筛选（02：filters transform the world） ----------
+  const [filter, setFilter] = useState<FieldFilter>(EMPTY_FILTER);
+  const dimmedSlugs = useMemo(() => {
+    if (!bladeList) return undefined;
+    const dimmed = new Set<string>();
+    for (const blade of bladeList) {
+      if (!isBladeVisible(blade, filter)) dimmed.add(blade.slug);
+    }
+    return dimmed.size > 0 ? dimmed : undefined;
+  }, [bladeList, filter]);
+
+  const visibleArtifactBlades = useMemo(
+    () => artifactBlades.filter((b) => !dimmedSlugs?.has(b.slug)),
+    [artifactBlades, dimmedSlugs],
+  );
+
+  // ---------- hover / 选中 ----------
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
+  const [anchor, setAnchor] = useState<LabelAnchor | null>(null);
+  const [heading, setHeading] = useState(0);
   const [hudData, setHudData] = useState<FieldDebugData | null>(null);
   const handleHudData = useCallback((data: FieldDebugData) => setHudData(data), []);
 
@@ -132,36 +186,48 @@ export default function BladeFieldPage() {
     };
   }, [hoveredSlug]);
 
-  const handleSelect = useCallback((slug: string) => navigate(`/blades/${slug}`), [navigate]);
+  // 03：选中进入"发现名剑"状态（不直接跳详情页），INSPECT 才导航
+  const handleSelect = useCallback((slug: string) => setSelectedSlug(slug), []);
+  const inspectBlade = useCallback((slug: string) => navigate(`/blades/${slug}`), [navigate]);
 
   const hoveredBlade = useMemo(
     () => bladeList?.find((b) => b.slug === hoveredSlug) ?? null,
     [bladeList, hoveredSlug],
   );
+  const selectedBlade = useMemo(
+    () => bladeList?.find((b) => b.slug === selectedSlug) ?? null,
+    [bladeList, selectedSlug],
+  );
+
+  // 选中卡描述：按需拉详情（列表接口不含 description），会话内缓存
+  const [details, setDetails] = useState<Record<string, BladeDetail>>({});
+  useEffect(() => {
+    if (!selectedSlug || details[selectedSlug]) return;
+    let cancelled = false;
+    fetchBladeDetail(selectedSlug)
+      .then((detail) => {
+        if (!cancelled) setDetails((map) => ({ ...map, [detail.slug]: detail }));
+      })
+      .catch(() => {
+        // 描述缺失时卡片退化为 culture/era 行，不打断探索
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSlug, details]);
+
+  // 选中卡打开时焦点移到 INSPECT（键盘路径闭环）
+  const inspectRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (selectedSlug) inspectRef.current?.focus();
+  }, [selectedSlug]);
 
   const render3d = webgl2 && effectiveTier !== "static" && !listError;
+  const exploring = mode === "explore";
 
   return (
     <main className="field-page">
-      <header className="field-page__header">
-        <a className="field-page__back" href="/">
-          ← Archive
-        </a>
-        <h1 className="field-page__title">Blade Field</h1>
-        <nav className="field-page__tiers" aria-label="Quality tier">
-          {(["balanced", "low", "static"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={effectiveTier === option ? "is-active" : ""}
-              aria-pressed={effectiveTier === option}
-              onClick={() => selectTier(option)}
-            >
-              {option}
-            </button>
-          ))}
-        </nav>
-      </header>
+      <AppHeader badge={exploring ? EXPLORE_BADGE : HOME_BADGE} active="explore" />
 
       {render3d ? (
         <div className="field-stage">
@@ -170,31 +236,35 @@ export default function BladeFieldPage() {
               tier={effectiveTier as "balanced" | "low"}
               instanceCount={instanceCount}
               debug={config.debug}
-              introActive={introVisible}
-              onIntroDone={() => setIntroPlayed(true)}
+              mode={mode}
+              driftEnabled={cinematic}
+              onIntroDone={() => setMode("explore")}
               artifactBlades={artifactBlades}
               hoveredSlug={hoveredSlug}
+              selectedSlug={selectedSlug}
+              dimmedSlugs={dimmedSlugs}
               onHoverChange={setHoveredSlug}
               onSelect={handleSelect}
               onDegrade={handleDegrade}
               onHudData={handleHudData}
+              onHeading={setHeading}
+              onAnchor={setAnchor}
             />
           </SceneErrorBoundary>
 
-          {introVisible && (
-            <div className="field-intro">
-              <p className="field-intro__eyebrow">A digital archive of legendary blades</p>
-              <h2 className="field-intro__title">
-                UNLIMITED
-                <br />
-                BLADE
-              </h2>
-              <button
-                type="button"
-                className="field-intro__skip"
-                onClick={() => setIntroPlayed(true)}
-              >
-                Skip intro
+          {!exploring && (
+            <div className={`field-hero${mode === "transition" ? " is-leaving" : ""}`}>
+              <p className="field-hero__eyebrow">An archive of legendary blades</p>
+              <h1 className="field-hero__title">UNLIMITED BLADE</h1>
+              <p className="field-hero__sub">History · Myth · Imagination</p>
+              <button type="button" className="field-hero__enter" onClick={enterExplore}>
+                <span className="field-hero__plus" aria-hidden="true">
+                  +
+                </span>
+                <span className="field-hero__enter-label">Enter the Archive</span>
+              </button>
+              <button type="button" className="field-hero__scroll" onClick={enterExplore}>
+                Scroll to begin
               </button>
             </div>
           )}
@@ -211,10 +281,39 @@ export default function BladeFieldPage() {
             </div>
           )}
 
-          {!introVisible && (
+          {exploring && bladeList && (
+            <FilterPanel blades={bladeList} filter={filter} onChange={setFilter} />
+          )}
+
+          {exploring && (
             <>
-              {hoveredBlade && (
-                <div className="field-hover-card" role="status">
+              <Compass heading={heading} />
+
+              <p className="field-hints">
+                {coarsePointer ? (
+                  <>
+                    <b>Drag</b> to look · <b>Tap</b> to select
+                  </>
+                ) : (
+                  <>
+                    <b>WASD</b> move · <b>Mouse</b> look · <b>Click</b> select
+                  </>
+                )}
+              </p>
+
+              {hoveredBlade && !selectedBlade && anchor && (
+                <div
+                  className="field-hover-card"
+                  role="status"
+                  style={
+                    anchor.flip
+                      ? {
+                          right: `${Math.max(12, window.innerWidth - anchor.x + 18)}px`,
+                          top: anchor.y - 14,
+                        }
+                      : { left: anchor.x + 18, top: anchor.y - 14 }
+                  }
+                >
                   <h2>{hoveredBlade.name}</h2>
                   <p>
                     {hoveredBlade.culture} · {hoveredBlade.era}
@@ -223,11 +322,45 @@ export default function BladeFieldPage() {
                 </div>
               )}
 
+              {selectedBlade && (
+                <>
+                  <div className="field-focus-dim" />
+                  <article className="field-selected-card" aria-label="Selected blade">
+                    <button
+                      type="button"
+                      className="field-selected-card__close"
+                      aria-label="Back to exploration"
+                      onClick={() => setSelectedSlug(null)}
+                    >
+                      ✕
+                    </button>
+                    <h2>{selectedBlade.name}</h2>
+                    <p className="field-selected-card__origin">
+                      {selectedBlade.culture} · {selectedBlade.era}
+                    </p>
+                    <span className="field-selected-card__tag">{selectedBlade.authenticity}</span>
+                    <p className="field-selected-card__desc">
+                      {details[selectedBlade.slug]?.description ??
+                        `${selectedBlade.culture} · ${selectedBlade.era} · ${selectedBlade.preservationStatus}`}
+                    </p>
+                    <button
+                      ref={inspectRef}
+                      type="button"
+                      className="field-selected-card__cta"
+                      onClick={() => inspectBlade(selectedBlade.slug)}
+                    >
+                      Inspect Blade →
+                    </button>
+                  </article>
+                </>
+              )}
+
               <ul className="field-artifact-buttons" aria-label="Artifact blades">
-                {artifactBlades.map((blade) => (
+                {visibleArtifactBlades.map((blade) => (
                   <li key={blade.slug}>
                     <button
                       type="button"
+                      className={selectedSlug === blade.slug ? "is-selected" : ""}
                       onPointerEnter={() => setHoveredSlug(blade.slug)}
                       onPointerLeave={() => setHoveredSlug(null)}
                       onFocus={() => setHoveredSlug(blade.slug)}
@@ -248,6 +381,20 @@ export default function BladeFieldPage() {
                   </button>
                 </li>
               </ul>
+
+              <nav className="field-tiers" aria-label="Quality tier">
+                {(["balanced", "low", "static"] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={effectiveTier === option ? "is-active" : ""}
+                    aria-pressed={effectiveTier === option}
+                    onClick={() => selectTier(option)}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </nav>
             </>
           )}
         </div>

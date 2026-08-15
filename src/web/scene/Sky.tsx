@@ -64,3 +64,66 @@ export function MountainRing() {
 
   return <mesh geometry={geometry} material={material} />;
 }
+
+/**
+ * 日食光环（设计稿 01 的标志性天体）：暗盘 + 金环 + 径向辉光。
+ * 全部 Basic 材质不受雾/光照影响，3 个 mesh 低成本。
+ */
+export function Eclipse() {
+  const glowTexture = useMemo(() => makeGlowTexture(), []);
+  return (
+    <group position={[0, 34, -210]}>
+      {/* 辉光 */}
+      <mesh renderOrder={-9}>
+        <planeGeometry args={[120, 120]} />
+        <meshBasicMaterial
+          map={glowTexture}
+          transparent
+          opacity={0.85}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          fog={false}
+        />
+      </mesh>
+      {/* 暗盘 */}
+      <mesh renderOrder={-8}>
+        <circleGeometry args={[13.2, 48]} />
+        <meshBasicMaterial color="#050607" fog={false} />
+      </mesh>
+      {/* 金环 */}
+      <mesh renderOrder={-7}>
+        <ringGeometry args={[13.1, 14.1, 64]} />
+        <meshBasicMaterial
+          color="#f0cf92"
+          transparent
+          opacity={0.95}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          fog={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/** Canvas 径向渐变辉光纹理（暖金 → 透明）。 */
+function makeGlowTexture(): THREE.Texture {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gradient.addColorStop(0, "rgba(240, 207, 146, 0.55)");
+    gradient.addColorStop(0.28, "rgba(216, 164, 90, 0.28)");
+    gradient.addColorStop(0.62, "rgba(120, 84, 40, 0.1)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
