@@ -6,7 +6,7 @@ This document collects visual, interaction, architecture, and open-source refere
 
 The current approved direction is a cinematic, dark museum/archive aesthetic combined with an explorable field of blades:
 
-![Approved visual concept](./assets/visual-concept-01.svg)
+![Approved visual concept](./assets/demo.png)
 
 Key traits to preserve:
 
@@ -100,16 +100,26 @@ Key traits to preserve:
 
 - https://developers.cloudflare.com/workers/vite-plugin/
 - Recommended local development/build integration for Vite + Workers.
+- React SPA + API tutorial: https://developers.cloudflare.com/workers/vite-plugin/tutorial/
+- Static asset routing: https://developers.cloudflare.com/workers/vite-plugin/reference/static-assets/
 
 ### Cloudflare D1
 
 - https://developers.cloudflare.com/d1/
 - Structured blade metadata, taxonomy, relations and source records.
+- Migrations: https://developers.cloudflare.com/d1/reference/migrations/
+- Prepared statements: https://developers.cloudflare.com/d1/worker-api/prepared-statements/
 
 ### Cloudflare R2
 
 - https://developers.cloudflare.com/r2/
 - GLB/glTF, KTX2 textures, HDR environments, thumbnails and audio assets.
+- Cache via custom domain: https://developers.cloudflare.com/cache/interaction-cloudflare-products/r2/
+
+### Workers observability
+
+- https://developers.cloudflare.com/workers/observability/
+- Worker request/error metrics, logs and traces; client-side frame-time and experience events remain application telemetry.
 
 ### Cloudflare Workers Builds / Git integration
 

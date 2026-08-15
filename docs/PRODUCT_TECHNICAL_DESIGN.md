@@ -1,9 +1,6 @@
 # Unlimited Blade Works — 产品技术方案
 
-> Domain: `unlimitedblade.work`  
-> Repository: `0326/unlimitedbladeworks`  
-> Stage: V0.1 / Technical Prototype  
-> Updated: 2026-08-16
+> Domain: `unlimitedblade.work` · Repository: `0326/unlimitedbladeworks` · Stage: V0.1 / Vertical Slice · Updated: 2026-08-16
 
 ## 1. 产品定义
 
@@ -38,6 +35,36 @@ Unlimited Blade Works 是一个以实时 3D 为核心交互的数字名剑档案
 - 复杂地图和完整历史时间轴
 
 先把最核心的 3D 体验做对。
+
+### 2.3 V0.1 收敛后的交付边界
+
+V0.1 不是“缩小版完整产品”，而是一条可发布、可测量的垂直切片：
+
+```text
+一个 Blade Field
++ 一把可交互 Artifact Blade
++ 一个完整 Artifact Viewer
++ 三条有来源的档案记录（其中一条绑定高精 3D）
++ 一条 Field → Viewer → Field 闭环
++ 一个无 3D / reduced-motion 可访问入口
+```
+
+在垂直切片通过性能、可用性和内容合规闸门之前，不扩充到 5–10 把高精模型，不建设通用 CMS，也不把 WebGPU、物理系统或复杂搜索放入关键路径。
+
+### 2.4 成功标准
+
+V0.1 同时满足以下条件才视为完成：
+
+| 维度 | 指标 | 验收方式 |
+| --- | --- | --- |
+| 体验闭环 | 新用户无需说明即可完成“进入 → 选剑 → 查看热点 → 返回” | 5 名目标用户可用性测试，至少 4 名独立完成 |
+| 桌面渲染 | 基准桌面 1080p、Balanced 档位，探索阶段稳定 60 FPS，1% low 不低于 45 FPS | 固定镜头脚本 + Chrome Performance trace |
+| 移动渲染 | 基准移动设备 Low 档位稳定 30 FPS，交互期间无持续卡顿 | 真实设备录制 60 秒 frame-time |
+| 首次可交互 | 3D 首屏不依赖高精 GLB；可跳过片头并快速进入文字档案 | 冷缓存、模拟 Fast 4G 与真实 Wi-Fi 测试 |
+| 稳定性 | 资源失败有重试/降级，WebGL 不可用时仍可访问档案 | 故障注入与 E2E 测试 |
+| 内容可信度 | 每项事实声明可追溯到 Source，所有资产有授权记录 | 发布检查清单 |
+
+具体加载秒数在 Phase 0 用真实占位资产建立基线后冻结，避免在资源体积未知时给出虚假精度。
 
 ## 3. 信息架构
 
@@ -268,11 +295,16 @@ Cloudflare Workers Builds
 
 ### 6.2 Worker/API
 
-使用 Hono：
+V0.1 使用 Hono 提供两个公开只读接口：
 
 ```text
 GET /api/blades
 GET /api/blades/:slug
+```
+
+后续版本再增加：
+
+```text
 GET /api/collections
 GET /api/search?q=
 ```
@@ -286,6 +318,19 @@ Worker 负责：
 - future search endpoints
 
 Worker 不参与实时 3D 图形计算。
+
+推荐请求路径：
+
+```text
+/assets/*                 → Workers Static Assets（应用代码与轻量 UI 资源）
+/api/*                    → Worker / Hono → D1
+assets.unlimitedblade.work → R2 Custom Domain（GLB/KTX2/HDR/大图）
+其他前端路由              → SPA fallback / index.html
+```
+
+大体积公开资产不默认经过 Worker 转发。R2 使用自定义域名接入 Cloudflare Cache；生产资产采用内容哈希文件名和长期 `immutable` 缓存，manifest/记录本身使用短缓存并可更新。只有私有、受限授权或需要审计的资产才走 Worker 鉴权。
+
+Cloudflare Vite plugin 作为本地开发、构建和运行时集成的唯一主路径。SPA fallback 与 `/api/*` Worker 路由必须在 `wrangler.jsonc` 中显式配置并通过预览环境测试，避免 API 404 被错误返回为 `index.html`。
 
 ### 6.3 数据
 
@@ -316,6 +361,16 @@ blades/{slug}/
   textures/*.ktx2
   gallery/*
 ```
+
+系统只在 D1 中保存 R2 object key、hash、媒体类型、尺寸、版本和授权元数据，不保存带域名的最终 URL。这样可以独立切换资产域名、缓存策略与受限访问方式。
+
+### 6.4 状态边界
+
+- URL 是当前藏品与可分享视图的真相来源，例如 `/blades/:slug?focus=hamon`。
+- React 本地状态负责 hover、面板开关和临时相机状态。
+- Zustand 仅负责跨 Field/Viewer 的短生命周期 transition context，不复制服务端档案数据。
+- Theatre.js 只驱动镜头、灯光、雾和 UI 时间线，不承载路由或业务状态。
+- 服务端数据通过带 schema 校验的 API client 读取；V0.1 不引入复杂客户端缓存框架。
 
 ## 7. 3D Asset Convention
 
@@ -468,20 +523,42 @@ Mobile：
 - 首屏优先加载 terrain + low-poly instance meshes
 - Artifact GLB 在 hover intent / select 时预取
 - HDRI 与音频按场景阶段加载
+- 初始 JavaScript 与 3D 资源分包；Viewer、编辑/调试工具不得进入 Field 首包
+- production source map 不对公网暴露，但保留到错误监控流程
+
+资产初始预算（Phase 0 profiling 后冻结）：
+
+| 资源 | 建议上限 | 说明 |
+| --- | ---: | --- |
+| Field 初始压缩传输 | 3 MB | 不含按用户手势启动的音频 |
+| Ambient blade geometry | 500 KB | 10–20 个共享低模，压缩后合计 |
+| Field textures | 2 MB | 优先 KTX2，共享贴图/atlas |
+| Viewer 示例 GLB | 8 MB | 首版硬上限，按需加载 |
+| 单张 gallery image | 400 KB | AVIF/WebP 响应式尺寸 |
+
+运行时预算：
+
+- Field 稳态 draw calls：Desktop ≤ 100，Mobile ≤ 60
+- GPU textures：Desktop ≤ 256 MB，Mobile ≤ 128 MB
+- DPR：Desktop 上限 1.5，Mobile 上限 1.25，动态档位可继续下调
+- 同时存在的高精 Artifact：最多 1 个；离开 Viewer 后显式释放 geometry、material、texture 和 render target
+- 粒子、阴影、后处理必须能被质量档位独立关闭
 
 性能指标通过真实设备 profiling 决定，而非只看桌面开发机。
 
+基准设备在 Phase 0 记录具体型号、浏览器、OS、屏幕分辨率和电源模式。以后所有“性能改善”都必须与同一脚本、同一设备矩阵对比。
+
 ## 11. Progressive Enhancement
 
-低性能设备自动降级：
+V0.1 只实现三个可验证档位：
 
 ```text
-Ultra
-High
 Balanced
 Low
 Static fallback
 ```
+
+V0.2 根据真实设备数据再决定是否拆分 `High / Ultra`，避免首版维护五套未经验证的参数组合。
 
 可依据：
 
@@ -504,12 +581,12 @@ CREATE TABLE blades (
   culture_id TEXT,
   era_id TEXT,
   type TEXT,
-  status TEXT,
+  preservation_status TEXT,
   authenticity TEXT,
+  publication_status TEXT NOT NULL DEFAULT 'draft'
+    CHECK (publication_status IN ('draft', 'review', 'published', 'archived')),
   description TEXT,
   current_location TEXT,
-  model_asset_key TEXT,
-  preview_asset_key TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -526,6 +603,20 @@ fictional
 ```
 
 每个事实性页面必须能够关联 Source，避免档案逐渐演化成无法验证的内容集合。
+
+V0.1 至少落地以下关系，而不是只实现单张 `blades` 表：
+
+```text
+blades 1─N blade_names
+blades 1─N assets
+blades 1─N annotations
+blades N─N sources（通过 blade_sources，带 claim/note/page locator）
+assets N─1 licenses
+```
+
+发布状态使用 `draft | review | published | archived`；只有 `published` 数据进入公开 API。所有写操作在 V0.1 通过 migration/seed 完成，公开 API 只读。D1 查询全部使用绑定参数，schema 变更只通过版本化 migration 进入 preview 和 production。
+
+API 响应返回稳定字段、`updatedAt` 和 asset manifest version。列表接口不返回长正文、完整 sources 或 Viewer 高精资产详情，避免首页查询演化成超大 payload。
 
 ## 13. 内容与版权
 
@@ -610,6 +701,16 @@ feature branch
 
 推荐 Cloudflare Workers Builds / Git integration 作为主路径；若后续需要复杂测试矩阵，再增加 GitHub Actions，而不是一开始重复维护两套部署逻辑。
 
+环境严格分离：
+
+```text
+local   → local/preview bindings + fixture assets
+preview → 独立 D1、独立 R2 prefix/bucket、预览域名
+prod    → production D1、production R2、unlimitedblade.work
+```
+
+上线顺序固定为：先上传内容哈希资产，再执行向后兼容 migration，再部署 Worker/前端，最后发布引用新 manifest 的记录。回滚应用版本时，旧 hash 资产仍然可用；不在部署过程中覆盖同名 GLB。
+
 Secrets 不进入 Git：
 
 ```text
@@ -617,6 +718,8 @@ Cloudflare secrets / environment variables
 D1 bindings
 R2 bindings
 ```
+
+最低发布门禁：typecheck、unit、API contract、Playwright 主流程、asset validation、production build、bundle/asset budget。preview 通过人工视觉与性能抽查后才能合并 main。
 
 ## 17. 推荐目录结构
 
@@ -646,76 +749,69 @@ unlimitedbladeworks/
 
 ## 18. V0.1 实施计划
 
-### Phase 0 — Foundation
+实施采用风险优先的闸门制。以下为 1 名全职工程师、不包含高精模型外包等待时间的粗估；每个阶段只有通过 Gate 才进入下一阶段。
 
-- React/Vite/Worker skeleton
-- Cloudflare deployment
-- basic route system
-- 3D canvas boot
+### Phase 0 — 可部署骨架与测量基线（2–3 天）
 
-### Phase 1 — `/lab/blade-field`
+- React/Vite + Cloudflare Vite plugin + Worker/Hono
+- `/`、`/lab/blade-field`、`/blades/:slug` 与 `/api/health`
+- preview/prod 环境骨架、错误边界、基础日志
+- 固定 profiling 脚本、设备矩阵与资源预算检查脚本
 
-目标：技术验证，不接正式数据库。
+**Gate 0：** preview 可访问，SPA/API 路由正确，CI 可阻止超预算构建。
 
-实现：
+### Phase 1 — Blade Field 风险验证（5–7 天）
 
-- terrain
-- sky
-- fog
-- lighting
-- 500+ instanced swords
-- dust particles
-- camera movement
-- hover picking
-- desktop/mobile profiling
+- 10–20 个 placeholder base meshes，500/1,000/2,000 实例阶梯测试
+- terrain、sky、fog、lighting；粒子和后处理先作为可关闭能力
+- camera、hover/picking、键盘焦点与 reduced-motion 路径
+- 自动质量档位只做 `Balanced / Low / Static` 三档，先不做五档
 
-完成标准：主流桌面环境视觉稳定，移动端具有明确降级路径。
+**Gate 1：** 基准桌面/移动设备达到第 10 节 frame-time 与内存预算；Static fallback 能完成内容访问。未通过时优先降低实例、DPR、阴影和后处理，不继续制作高精内容。
 
-### Phase 2 — Artifact Viewer
+### Phase 2 — 单剑 Viewer 与资产流水线（5–7 天）
 
-实现一把示范藏品：
+- 一把授权清晰的示范藏品：PBR、orbit/focus、3 个 annotations、part highlight
+- Blender node convention → validate → optimize/compress → preview → upload → manifest
+- GLB/KTX2 lazy load、进度、取消、失败重试和显存释放
+- Viewer 的 HTML 等价内容与键盘操作
 
-- optimized GLB
-- PBR
-- orbit/focus camera
-- annotation
-- part highlight
-- metadata panel
-- lazy loading
+**Gate 2：** 示例资产通过命名、授权、体积、视觉和移动显存检查；Viewer 不影响 Field 首包。
 
-### Phase 3 — Field → Viewer
+### Phase 3 — 垂直切片闭环（4–6 天）
 
-实现：
+- Artifact Blade hover card
+- select/draw → route → Viewer；返回时恢复 Field 状态
+- 刷新、深链、前进/后退、加载失败、reduced-motion 全路径
+- Theatre.js 只编排可跳过的表现层 sequence
 
-- artifact sword in field
-- hover information
-- draw transition
-- viewer transition
-- back-to-field transition
+**Gate 3：** 5 名测试用户中至少 4 名无需指导完成核心任务；浏览器导航和失败恢复无死路。
 
-这是 V0.1 的核心 milestone。
+### Phase 4 — 可信内容与 API（4–6 天）
 
-### Phase 4 — Archive Data
+- D1 migrations：Blade、Asset、Annotation、Source、License 及关联表
+- 3 条已校对档案记录，其中 1 条绑定完整 3D
+- 列表/详情只读 API、缓存策略、JSON-LD 与可索引 HTML
+- R2 自定义资产域名、hash manifest、preview/prod 隔离
 
-- D1 schema
-- Blade API
-- Source model
-- 5–10 curated blades
-- R2 asset pipeline
+**Gate 4：** 每项事实与每个公开资产均可追溯；API contract 与 migration 在 preview 验证通过。
 
-### Phase 5 — Production Polish
+### Phase 5 — 发布硬化（4–6 天）
 
-- responsive UI
-- performance tiers
-- reduced motion
-- SEO metadata
-- error boundaries
-- analytics/performance telemetry
-- domain production deployment
+- 响应式与跨浏览器检查
+- WebGL context lost、离线/慢网、404、资源损坏故障注入
+- 核心事件、Web Vitals、frame-time、质量降级与 Worker 错误观测
+- 安全 headers、缓存检查、域名与 production smoke test
 
-## 19. 第一批建议藏品
+**Gate 5：** 第 2.4 节全部成功标准和发布门禁通过。
 
-V0.1 不追求数量，建议 5–10 把具有明显文化差异、模型形态差异和故事性的藏品，例如：
+### V0.2 扩展条件
+
+只有 V0.1 发布后数据证明用户能发现并完成 Viewer 交互，才扩展到 5–10 把藏品、collections/cultures/eras、复杂搜索和更多质量档位。WebGPU、Rapier、CMS、账户系统继续独立评估，不自动进入 V0.2。
+
+## 19. 内容批次建议
+
+V0.1 只发布 3 条经过校对的档案记录，并只为其中 1 条制作完整高精 3D。候选池可包含：
 
 - Honjō Masamune
 - Kusanagi-no-Tsurugi
@@ -725,7 +821,7 @@ V0.1 不追求数量，建议 5–10 把具有明显文化差异、模型形态�
 - Chinese Jian representative artifact / documented blade
 - European longsword representative artifact
 
-历史与传说必须通过 authenticity 字段明确区分。
+历史与传说必须通过 authenticity 字段明确区分。候选名单不是发布承诺；最终选择优先服从“可靠来源 + 清晰授权 + 可在预算内制作资产”，而不是知名度。
 
 ## 20. 技术参考
 
@@ -761,6 +857,17 @@ V0.1 不追求数量，建议 5–10 把具有明显文化差异、模型形态�
 | WebGPU | Progressive experiment, WebGL2 first |
 | Initial scope | 3D Field + one Artifact Viewer + transition |
 
+关键补充约束：
+
+| Area | Guardrail |
+| --- | --- |
+| R2 delivery | Public hashed assets via custom domain/cache; Worker proxy only when access control is needed |
+| Client routing | SPA fallback, with `/api/*` explicitly routed to Worker |
+| State | URL for shareable state; local state by default; Zustand only for transition context |
+| Cinematics | Theatre.js is presentation-only and always skippable |
+| Content | 3 records in V0.1, 1 full 3D asset |
+| Release | Measurable gates; no content expansion before performance and usability pass |
+
 ## 22. 核心原则
 
 1. **3D is the interface, not decoration.**
@@ -770,7 +877,9 @@ V0.1 不追求数量，建议 5–10 把具有明显文化差异、模型形态�
 5. **Every major 3D experience needs an accessible fallback.**
 6. **Build an original Unlimited Blade identity rather than a Fate replica.**
 7. **Profile before optimizing, but establish budgets before content scales.**
+8. **Ship one trustworthy vertical slice before building a large archive.**
+9. **Make every cinematic path skippable, resumable and URL-addressable.**
 
 ---
 
-V0.1 的第一项工程任务应为 `/lab/blade-field`：先用占位低模完成 500+ 剑实例、terrain、sky、fog、camera、hover picking 和性能分级。在这一原型稳定之前，不投入大规模藏品数据录入和高精 3D 资产制作。
+V0.1 的第一项工程任务是 Phase 0 的可部署骨架与测量基线，随后才是 `/lab/blade-field`。在 Gate 1 通过之前，不投入大规模藏品录入和高精 3D 资产制作；在 Gate 3 通过之前，不扩展第二把完整 3D 藏品。

@@ -1,0 +1,29 @@
+{
+  // Cloudflare Workers 配置。本地开发与构建由 @cloudflare/vite-plugin 接管，
+  // 静态资源目录会在构建时自动注入，无需手动填写 assets.directory。
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "unlimitedbladeworks",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    // 未知前端路径回退到 index.html（SPA）；/api/* 强制先进 Worker，
+    // 避免 API 404 被静态资源层错误地返回 index.html。
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "vars": {
+    "ENVIRONMENT": "production",
+  },
+  "env": {
+    "preview": {
+      "name": "unlimitedbladeworks-preview",
+      "vars": {
+        "ENVIRONMENT": "preview",
+      },
+    },
+  },
+}
