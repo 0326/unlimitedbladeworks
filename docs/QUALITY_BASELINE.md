@@ -56,3 +56,24 @@ pnpm e2e           # Playwright smoke（自动 build + vite preview）
 - 加载秒数基线：待 Phase 1 真实占位资产就绪后，以 Fast 4G 节流录制并冻结具体秒数（设计文档 §2.4）。
 
 验证证据：typecheck / lint / format 通过；vitest 12/12；Playwright smoke 7/7（Chromium 1.62）。
+
+## 6. Phase 1 Blade Field 采样（2026-08-16）
+
+采样方式：`pnpm profile:field`（headless Chromium + SwiftShader，1280×720，每档采样 10 秒取中位数，intro 结束后起测）。原始数据：`docs/data/phase1-profile.json`。
+
+| instances | 实际档位 | fps* | frame ms* | draw calls | triangles | geometries | textures |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 500 | low（自动降级） | 21 | 47.6 | 19 | 85,692 | 17 | 3 |
+| 1000 | low（自动降级） | 14 | 71.4 | 19 | 150,832 | 17 | 3 |
+| 2000 | low（自动降级） | 8 | 125 | 19 | 280,900 | 17 | 3 |
+
+\* SwiftShader 为 CPU 光栅化，fps/frame time 仅作回归对比，不代表真实 GPU 表现（真实设备指标待 §2 的固定 60 秒 profiling 录制）。
+
+结论：
+
+- **Draw calls 恒定 19，与实例数无关**——GPU instancing 生效，远低于桌面预算 100（§3）。
+- 三角形数随实例数线性增长（约 140 tris/实例），几何合并符合预期。
+- geometries 17 / textures 3 恒定：base mesh 变体合并为 10 个 InstancedMesh + 地形/天空/粒子等固定对象。
+- Field 页面总传输（gzip）：335 KB（JS 333 KB + CSS 2 KB，含懒加载 3D chunk），低于 §3 的 3 MB 预算。
+- 初始 JS（gzip，入口闭包）：71.1 KB / 150 KB（3D 全部在懒加载 chunk，未进首包）。
+- SwiftShader 下 frame-time EMA 持续 >25ms，QualitySampler 按设计触发 balanced → low 单向降级（e2e 已覆盖该路径）。

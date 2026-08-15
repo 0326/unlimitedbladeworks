@@ -24,15 +24,20 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:budgets": "node scripts/check-budgets.mjs",
+    "profile:field": "node scripts/profile-field.mjs",
     "e2e": "playwright test",
     "deploy": "wrangler deploy",
     "deploy:preview": "wrangler deploy --env preview"
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.8",
+    "@react-three/fiber": "^9.7.0",
+    "@react-three/postprocessing": "^3.0.5",
     "hono": "^4.13.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router": "^8.3.0"
+    "react-router": "^8.3.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.52.1",
@@ -42,6 +47,7 @@
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "^6.0.5",
     "eslint": "^10.8.1",
     "eslint-plugin-react-hooks": "^7.1.1",

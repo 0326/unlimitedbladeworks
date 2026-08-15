@@ -1,0 +1,47 @@
+{
+  "date": "2026-08-15",
+  "device": "MacBook Pro (Apple Silicon) · headless Chromium · SwiftShader CPU rasterizer",
+  "viewport": "1280x720",
+  "note": "fps/frameTime 为 SwiftShader CPU 光栅化参考值，仅用于回归对比；calls/triangles 为确定性指标",
+  "samples": [
+    {
+      "instances": 500,
+      "tier": "low",
+      "fps": 21,
+      "frameTimeMs": 47.6,
+      "calls": 19,
+      "triangles": 85692,
+      "geometries": 17,
+      "textures": 3,
+      "sampleCount": 19
+    },
+    {
+      "instances": 1000,
+      "tier": "low",
+      "fps": 14,
+      "frameTimeMs": 71.4,
+      "calls": 19,
+      "triangles": 150832,
+      "geometries": 17,
+      "textures": 3,
+      "sampleCount": 18
+    },
+    {
+      "instances": 2000,
+      "tier": "low",
+      "fps": 8,
+      "frameTimeMs": 125,
+      "calls": 19,
+      "triangles": 280900,
+      "geometries": 17,
+      "textures": 3,
+      "sampleCount": 17
+    }
+  ],
+  "transfer": {
+    "jsBytes": 341293,
+    "cssBytes": 2131,
+    "totalBytes": 343424,
+    "resourceCount": 10
+  }
+}

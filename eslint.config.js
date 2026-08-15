@@ -36,4 +36,11 @@ export default tseslint.config(
       globals: globals.node,
     },
   },
+  {
+    // profile 脚本的 page.evaluate/waitForFunction 回调在浏览器上下文执行
+    files: ["scripts/profile-field.mjs"],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
 );

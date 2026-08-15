@@ -10,8 +10,8 @@ export default function HomePage() {
         BLADE
       </h1>
       <p className="home__hint">
-        History, myth, and craft — kept sharp in one archive. The cinematic field arrives with Phase
-        1; the record viewer is already reachable.
+        History, myth, and craft — kept sharp in one archive. Step into the field, pick a blade, and
+        read its record. A text-only archive path is always available.
       </p>
       <nav className="home__actions" aria-label="Primary">
         <Link to="/lab/blade-field">Enter the Field</Link>

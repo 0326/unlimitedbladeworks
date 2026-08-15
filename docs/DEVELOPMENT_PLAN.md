@@ -105,32 +105,34 @@ P0 工程骨架 ──→ P1 Blade Field ──→ P3 体验闭环 ──→ P5 
 
 #### P1-01 场景骨架
 
-- [ ] Canvas、camera、renderer、lighting、fog、terrain
-- [ ] WebGL capability detection 和 Static fallback
-- [ ] 页面可见性变化时暂停渲染
+- [x] Canvas、camera、renderer、lighting、fog、terrain
+- [x] WebGL capability detection 和 Static fallback
+- [x] 页面可见性变化时暂停渲染
 
 #### P1-02 Ambient Blade Instancing
 
-- [ ] 准备 10–20 个低模 placeholder base meshes
-- [ ] 建立可复现的 seeded placement
-- [ ] 测试 500、1,000、2,000 实例
-- [ ] 记录 draw calls、frame time、纹理内存和总传输体积
+- [x] 准备 10–20 个低模 placeholder base meshes
+- [x] 建立可复现的 seeded placement
+- [x] 测试 500、1,000、2,000 实例
+- [x] 记录 draw calls、frame time、纹理内存和总传输体积
 
 #### P1-03 交互与相机
 
-- [ ] Artifact Blade 独立实体和稳定 ID
-- [ ] pointer hover/select 与可控制的 picking 范围
-- [ ] 键盘 focus/select 和屏幕阅读器可见文本
-- [ ] 相机边界、reset、跳过片头
+- [x] Artifact Blade 独立实体和稳定 ID
+- [x] pointer hover/select 与可控制的 picking 范围
+- [x] 键盘 focus/select 和屏幕阅读器可见文本
+- [x] 相机边界、reset、跳过片头
 
 #### P1-04 质量档位
 
-- [ ] `Balanced / Low / Static` 参数表
-- [ ] 动态 DPR 与 frame-time 采样降级
-- [ ] 粒子、阴影、后处理独立开关
-- [ ] `prefers-reduced-motion` 直接进入可控场景或文字档案
+- [x] `Balanced / Low / Static` 参数表
+- [x] 动态 DPR 与 frame-time 采样降级
+- [x] 粒子、阴影、后处理独立开关
+- [x] `prefers-reduced-motion` 直接进入可控场景或文字档案
 
 **Gate 1：** 基准桌面 Balanced 达到目标帧率，基准移动 Low 稳定 30 FPS；Static 路径可完成藏品访问。未通过时停止高精场景扩展。
+
+> 2026-08-16 验证证据：typecheck / lint / format 通过；vitest 41/41；Playwright 16/16（含 3D 拾取导航、hover 卡、键盘 focus+Enter、intro 跳过、可见性暂停、tier=static 与 WebGL 禁用 fallback、reduced-motion 初始 low 档）。profiling（`pnpm profile:field`，SwiftShader）：draw calls 恒定 19（500/1000/2000 实例），远低于桌面预算 100；总传输 335 KB gzip；初始 JS 71.1 KB。真实桌面/移动 GPU 帧率指标待按 QUALITY_BASELINE §2 在基准设备录制（SwiftShader 无 GPU 帧率意义），Static 路径经 e2e 验证可达 `/blades/:slug`——按本机无真机条件，桌面/移动实测帧率项转 Gate 1 遗留，在 Phase 5 跨端测试统一补验。
 
 ### Phase 2 — Artifact Viewer 与资产流水线（Week 3，5–7 天）
 

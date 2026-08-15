@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
- * Gate 0 资源预算门禁：解析 Vite 构建产物，校验初始 JS 与单 chunk 体积。
+ * 资源预算门禁：解析 Vite 构建产物，校验初始 JS 与各 chunk 体积。
  * 超预算时以非零码退出，用于 CI 阻止超预算构建。
+ *
+ * 预算（QUALITY_BASELINE.md §3）：
+ * - 初始 JS（入口静态 import 闭包，gzip）≤ 150 KB —— 3D 不得进首包
+ * - 任意单 chunk（gzip）≤ 1.5 MB —— 覆盖懒加载的 Field 3D chunk（three + R3F）
  *
  * 用法：先 `pnpm build`，再 `pnpm check:budgets`。
  */
@@ -9,10 +13,9 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import path from "node:path";
 
-// Phase 0 预算：初始 JS（gzip）150 KB。Phase 1 加入 R3F 后依据 profiling 重新冻结。
 const BUDGETS = {
   initialJsGzipBytes: 150 * 1024,
-  maxChunkGzipBytes: 300 * 1024,
+  anyChunkGzipBytes: 1536 * 1024,
 };
 
 function formatKb(bytes) {
@@ -21,8 +24,7 @@ function formatKb(bytes) {
 
 function findClientRoot() {
   for (const candidate of ["dist/client", "dist"]) {
-    const manifestDir = path.join(candidate, ".vite");
-    if (existsSync(manifestDir)) return candidate;
+    if (existsSync(path.join(candidate, ".vite"))) return candidate;
     if (existsSync(path.join(candidate, "index.html"))) return candidate;
   }
   console.error("budget check: no build output found. Run `pnpm build` first.");
@@ -68,20 +70,27 @@ function resolveInitialChunks() {
 
 const allJsFiles = listFiles(clientRoot).filter((file) => file.endsWith(".js"));
 const initialFiles = resolveInitialChunks() ?? allJsFiles;
+const initialSet = new Set(initialFiles);
 
 const gzipSize = (file) => gzipSync(readFileSync(file)).length;
 
 const initialTotal = initialFiles.reduce((sum, file) => sum + gzipSize(file), 0);
-const largestChunk = allJsFiles
-  .map((file) => ({ file: path.relative(clientRoot, file), gzip: gzipSize(file) }))
-  .sort((a, b) => b.gzip - a.gzip)[0];
+const chunks = allJsFiles
+  .map((file) => ({
+    file: path.relative(clientRoot, file),
+    gzip: gzipSize(file),
+    initial: initialSet.has(file),
+  }))
+  .sort((a, b) => b.gzip - a.gzip);
 
 console.log(`budget check: client root = ${clientRoot}`);
-console.log(`  initial JS (${initialFiles.length} chunks, gzip): ${formatKb(initialTotal)}`);
-console.log(`  budget:                              ${formatKb(BUDGETS.initialJsGzipBytes)}`);
-if (largestChunk) {
+console.log(
+  `  initial JS (${initialFiles.length} chunks, gzip): ${formatKb(initialTotal)} / ${formatKb(BUDGETS.initialJsGzipBytes)}`,
+);
+console.log(`  top chunks (gzip):`);
+for (const chunk of chunks.slice(0, 5)) {
   console.log(
-    `  largest chunk: ${largestChunk.file} — ${formatKb(largestChunk.gzip)} (budget ${formatKb(BUDGETS.maxChunkGzipBytes)})`,
+    `    ${chunk.initial ? "[initial]" : "[lazy]  "} ${chunk.file} — ${formatKb(chunk.gzip)}`,
   );
 }
 
@@ -92,9 +101,10 @@ if (initialTotal > BUDGETS.initialJsGzipBytes) {
   );
   failed = true;
 }
-if (largestChunk && largestChunk.gzip > BUDGETS.maxChunkGzipBytes) {
+const oversize = chunks.filter((c) => c.gzip > BUDGETS.anyChunkGzipBytes);
+for (const chunk of oversize) {
   console.error(
-    `FAIL: chunk ${largestChunk.file} ${formatKb(largestChunk.gzip)} exceeds single-chunk budget ${formatKb(BUDGETS.maxChunkGzipBytes)}`,
+    `FAIL: chunk ${chunk.file} ${formatKb(chunk.gzip)} exceeds single-chunk budget ${formatKb(BUDGETS.anyChunkGzipBytes)}`,
   );
   failed = true;
 }
