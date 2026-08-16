@@ -15,6 +15,8 @@ export interface QualityParams {
   shadows: boolean;
   particles: boolean;
   postProcessing: boolean;
+  /** Balanced uses a subtle depth-of-field pass; Low disables it. */
+  depthOfField: boolean;
   antialias: boolean;
   fogNear: number;
   fogFar: number;
@@ -28,6 +30,7 @@ export const QUALITY_PARAMS: Record<QualityTier, QualityParams> = {
     shadows: true,
     particles: true,
     postProcessing: true,
+    depthOfField: true,
     antialias: true,
     fogNear: 30,
     fogFar: 175,
@@ -39,6 +42,7 @@ export const QUALITY_PARAMS: Record<QualityTier, QualityParams> = {
     shadows: false,
     particles: false,
     postProcessing: false,
+    depthOfField: false,
     antialias: false,
     fogNear: 22,
     fogFar: 125,
@@ -50,6 +54,7 @@ export const QUALITY_PARAMS: Record<QualityTier, QualityParams> = {
     shadows: false,
     particles: false,
     postProcessing: false,
+    depthOfField: false,
     antialias: false,
     fogNear: 0,
     fogFar: 1,

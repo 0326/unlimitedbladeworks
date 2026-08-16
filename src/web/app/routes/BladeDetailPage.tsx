@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ApiError, fetchBladeDetail, type BladeDetail } from "../../lib/api";
+import { useI18n } from "../../lib/i18n-context";
 
 type LoadState =
   | { status: "loading" }
@@ -9,6 +10,7 @@ type LoadState =
 
 export default function BladeDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const { t } = useI18n();
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [reloadToken, setReloadToken] = useState(0);
 
@@ -44,25 +46,25 @@ export default function BladeDetailPage() {
     <main className="detail-page">
       <header className="detail-page__header">
         <Link className="detail-page__back" to="/">
-          ← Archive
+          ← {t("detail.archive")}
         </Link>
       </header>
 
       {view.status === "loading" && (
         <p className="detail-page__status" role="status">
-          Loading record…
+          {t("detail.loading")}
         </p>
       )}
 
       {view.status === "error" && (
         <section className="detail-page__error" role="alert">
-          <h1>Record unavailable</h1>
+          <h1>{t("detail.unavailable")}</h1>
           <p>{view.message}</p>
           <div className="error-page__actions">
             <button type="button" onClick={retry}>
-              Retry
+              {t("detail.retry")}
             </button>
-            <Link to="/">Back to entrance</Link>
+            <Link to="/">{t("detail.backEntrance")}</Link>
           </div>
         </section>
       )}
@@ -75,24 +77,24 @@ export default function BladeDetailPage() {
           <h1>{view.blade.name}</h1>
           <dl className="detail-page__meta">
             <div>
-              <dt>Type</dt>
+              <dt>{t("detail.type")}</dt>
               <dd>{view.blade.type}</dd>
             </div>
             <div>
-              <dt>Authenticity</dt>
+              <dt>{t("detail.authenticity")}</dt>
               <dd>{view.blade.authenticity}</dd>
             </div>
             <div>
-              <dt>Status</dt>
+              <dt>{t("detail.status")}</dt>
               <dd>{view.blade.preservationStatus}</dd>
             </div>
           </dl>
           <p className="detail-page__description">{view.blade.description}</p>
 
           <section className="detail-page__annotations">
-            <h2>Structure</h2>
+            <h2>{t("detail.structure")}</h2>
             {view.blade.annotations.length === 0 ? (
-              <p className="detail-page__empty">No published annotations yet.</p>
+              <p className="detail-page__empty">{t("detail.noAnnotations")}</p>
             ) : (
               <ul>
                 {view.blade.annotations.map((annotation) => (
@@ -106,11 +108,9 @@ export default function BladeDetailPage() {
           </section>
 
           <section className="detail-page__sources">
-            <h2>Sources</h2>
+            <h2>{t("detail.sources")}</h2>
             {view.blade.sources.length === 0 ? (
-              <p className="detail-page__empty">
-                No published sources yet. Claims land only after the Phase 4 sourcing review.
-              </p>
+              <p className="detail-page__empty">{t("detail.noSources")}</p>
             ) : (
               <ul>
                 {view.blade.sources.map((source) => (

@@ -19,9 +19,24 @@ export interface PlacementAnchor {
 }
 
 export const ARTIFACT_ANCHORS: PlacementAnchor[] = [
-  { slug: "calibration-katana", x: -7, z: -16 },
-  { slug: "calibration-longsword", x: 9, z: -12 },
+  { slug: "calibration-katana", x: -7, z: 1 },
+  { slug: "calibration-longsword", x: 10, z: 5 },
 ];
+
+/** 手工构图的前景框景剑，不参与档案拾取。 */
+const FOREGROUND_SPECS: Omit<BladePlacement, "y">[] = [
+  { x: -15, z: 8, rotY: -0.18, tiltX: -0.08, tiltZ: -0.06, scale: 5.8, variant: 7, tint: 0.55 },
+  { x: -6.5, z: 12, rotY: 0.12, tiltX: 0.1, tiltZ: 0.03, scale: 4.4, variant: 0, tint: 0.38 },
+  { x: 17, z: 11, rotY: -0.26, tiltX: -0.06, tiltZ: 0.08, scale: 5.2, variant: 1, tint: 0.62 },
+  { x: 15, z: -1, rotY: 0.18, tiltX: 0.12, tiltZ: -0.03, scale: 3.6, variant: 3, tint: 0.45 },
+];
+
+export function generateForegroundPlacements(): BladePlacement[] {
+  return FOREGROUND_SPECS.map((spec) => ({
+    ...spec,
+    y: terrainHeight(spec.x, spec.z) - 0.08,
+  }));
+}
 
 /** mulberry32 PRNG：32 位 seed，快速且跨运行确定性。 */
 export function mulberry32(seed: number): () => number {

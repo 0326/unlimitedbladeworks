@@ -63,6 +63,7 @@ export function DebugBridge({
       triangles: gl.info.render.triangles,
       geometries: gl.info.memory.geometries,
       textures: gl.info.memory.textures,
+      cameraPosition: [camera.position.x, camera.position.y, camera.position.z],
       artifacts,
     };
     window.__fieldDebug = data;

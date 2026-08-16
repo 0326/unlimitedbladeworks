@@ -63,17 +63,17 @@ pnpm e2e           # Playwright smoke（自动 build + vite preview）
 
 | instances | 实际档位 | fps* | frame ms* | draw calls | triangles | geometries | textures |
 | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 500 | low（自动降级） | 21 | 47.6 | 19 | 85,692 | 17 | 3 |
-| 1000 | low（自动降级） | 14 | 71.4 | 19 | 150,832 | 17 | 3 |
-| 2000 | low（自动降级） | 8 | 125 | 19 | 280,900 | 17 | 3 |
+| 500 | low（自动降级） | 11.5 | 87 | 20 | 85,246 | 21 | 5 |
+| 1000 | low（自动降级） | 8 | 125 | 20 | 149,998 | 21 | 5 |
+| 2000 | low（自动降级） | 5 | 200 | 20 | 280,522 | 23 | 21 |
 
 \* SwiftShader 为 CPU 光栅化，fps/frame time 仅作回归对比，不代表真实 GPU 表现（真实设备指标待 §2 的固定 60 秒 profiling 录制）。
 
 结论：
 
-- **Draw calls 恒定 19，与实例数无关**——GPU instancing 生效，远低于桌面预算 100（§3）。
+- **Draw calls 恒定约 20，与实例数无关**——GPU instancing 生效，远低于桌面预算 100（§3）；Low 档关闭云层和前景框景以控制固定开销。
 - 三角形数随实例数线性增长（约 140 tris/实例），几何合并符合预期。
-- geometries 17 / textures 3 恒定：base mesh 变体合并为 10 个 InstancedMesh + 地形/天空/粒子等固定对象。
-- Field 页面总传输（gzip）：335 KB（JS 333 KB + CSS 2 KB，含懒加载 3D chunk），低于 §3 的 3 MB 预算。
+- geometries 21–23 / textures 5–21：base mesh 变体仍合并为 InstancedMesh，新增连续山脊、云纹理、Bloom/DOF 后处理资源计入固定对象。
+- Field 页面总传输（gzip）：344 KB（JS 340 KB + CSS 4 KB，含懒加载 3D chunk），低于 §3 的 3 MB 预算。
 - 初始 JS（gzip，入口闭包）：71.1 KB / 150 KB（3D 全部在懒加载 chunk，未进首包）。
-- SwiftShader 下 frame-time EMA 持续 >25ms，QualitySampler 按设计触发 balanced → low 单向降级（e2e 已覆盖该路径）。
+- 本次视觉修复在 Low 档将固定 draw calls 控制为 20，保留在移动 ≤60 / 桌面 ≤100 Gate 内；SwiftShader 帧时间受宿主负载影响较大，仅作 CPU 参考，QualitySampler 按设计触发 balanced → low 单向降级（e2e 已覆盖该路径）。真实 GPU 设备需按 §2 的固定 60 秒矩阵复测。

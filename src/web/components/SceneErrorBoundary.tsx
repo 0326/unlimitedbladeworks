@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { useI18n } from "../lib/i18n-context";
 
 interface SceneErrorBoundaryProps {
   /** 3D 场景的 HTML 等价内容入口，失败时仍可访问档案。 */
@@ -32,22 +33,24 @@ export class SceneErrorBoundary extends Component<
 
   render() {
     if (this.state.hasError) {
-      return (
-        <div className="scene-fallback" role="alert">
-          <p className="scene-fallback__title">The 3D scene failed to start.</p>
-          <p className="scene-fallback__hint">
-            Your device may not support WebGL, or the scene hit a rendering error. The text archive
-            remains fully available.
-          </p>
-          <div className="error-page__actions">
-            <button type="button" onClick={() => window.location.reload()}>
-              Retry scene
-            </button>
-            <a href="/blades/calibration-katana">Open a text record</a>
-          </div>
-        </div>
-      );
+      return <SceneErrorContent />;
     }
     return this.props.children;
   }
+}
+
+function SceneErrorContent() {
+  const { t } = useI18n();
+  return (
+    <div className="scene-fallback" role="alert">
+      <p className="scene-fallback__title">{t("error.sceneTitle")}</p>
+      <p className="scene-fallback__hint">{t("error.sceneHint")}</p>
+      <div className="error-page__actions">
+        <button type="button" onClick={() => window.location.reload()}>
+          {t("error.retryScene")}
+        </button>
+        <a href="/blades/calibration-katana">{t("error.openRecord")}</a>
+      </div>
+    </div>
+  );
 }

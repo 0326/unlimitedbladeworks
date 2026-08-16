@@ -54,6 +54,8 @@ async function sampleLadder(page, instances) {
   await page.goto(`${BASE}/lab/blade-field?instances=${instances}&debug=1`, {
     waitUntil: "domcontentloaded",
   });
+  // Home is now an explicit first screen; enter the archive before sampling Explore.
+  await page.getByRole("button", { name: "Enter the Archive" }).click();
   // 等 DebugBridge 首次推送（含 artifact 屏幕坐标）
   await page.waitForFunction(
     () => {

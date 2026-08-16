@@ -11,6 +11,7 @@ export interface FieldDebugData {
   triangles: number;
   geometries: number;
   textures: number;
+  cameraPosition: [number, number, number];
   /** Artifact 世界坐标投影到屏幕后的客户端像素坐标。 */
   artifacts: { slug: string; x: number; y: number }[];
 }

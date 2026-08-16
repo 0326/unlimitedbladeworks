@@ -4,7 +4,7 @@ test.describe("Gate 0 smoke", () => {
   test("home page renders the archive entrance", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("UNLIMITED");
-    await expect(page.getByRole("link", { name: "Enter the Field" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Enter the Archive" })).toBeVisible();
   });
 
   test("deep link to a blade record survives a full reload (SPA fallback)", async ({ page }) => {
@@ -21,9 +21,50 @@ test.describe("Gate 0 smoke", () => {
 
   test("client-side navigation reaches the Blade Field page", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: "Enter the Field" }).click();
-    await expect(page).toHaveURL(/\/lab\/blade-field$/);
-    await expect(page.getByRole("heading", { name: "Blade Field" })).toBeVisible();
+    await page.getByRole("button", { name: "Enter the Archive" }).click();
+    await expect(page).toHaveURL(/\/explore$/);
+    await expect(page.getByRole("heading", { name: "Explore the Field" })).toBeVisible({
+      timeout: 30_000,
+    });
+  });
+
+  test("Home and Explore preserve browser back/forward state", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Enter the Archive" }).click();
+    await expect(page).toHaveURL(/\/explore$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("button", { name: "Enter the Archive" })).toBeVisible();
+    await page.goForward();
+    await expect(page).toHaveURL(/\/explore$/);
+    await expect(page.getByRole("heading", { name: "Explore the Field" })).toBeVisible({
+      timeout: 30_000,
+    });
+  });
+
+  test("top navigation routes respond for every section", async ({ page }) => {
+    await page.goto("/");
+    for (const [label, path] of [
+      ["Collections", "/collections"],
+      ["Timeline", "/timeline"],
+      ["About", "/about"],
+    ] as const) {
+      await page.getByRole("link", { name: label }).click();
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(page.getByRole("heading", { name: label })).toBeVisible();
+      await page.goto("/");
+    }
+  });
+
+  test("language switch updates UI and persists across navigation", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Switch to Chinese" }).click();
+    await expect(page.getByText("传奇名剑数字档案")).toBeVisible();
+    await page.getByRole("button", { name: "切换到英文" }).click();
+    await expect(page.getByText("An archive of legendary blades")).toBeVisible();
+    await page.getByRole("button", { name: "Switch to Chinese" }).click();
+    await page.getByRole("link", { name: "探索" }).click();
+    await expect(page.getByRole("heading", { name: "探索剑丘" })).toBeVisible({ timeout: 30_000 });
   });
 
   test("unknown frontend route shows the 404 page, not a blank SPA shell", async ({ page }) => {

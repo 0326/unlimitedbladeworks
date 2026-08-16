@@ -7,6 +7,7 @@ import { EMPTY_FILTER, isBladeVisible, type FieldFilter } from "../../lib/fieldF
 import { SceneErrorBoundary } from "../../components/SceneErrorBoundary";
 import { StaticField } from "../../components/StaticField";
 import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion";
+import { useI18n } from "../../lib/i18n-context";
 import {
   fetchBladeDetail,
   fetchBladeList,
@@ -43,9 +44,10 @@ function readStoredTier(): QualityTier | null {
 export default function BladeFieldPage({
   initialMode = "home",
 }: {
-  initialMode?: "home" | "explore";
+  initialMode?: "home" | "transition" | "explore";
 }) {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   // URL 参数只在进入页面时读取一次（阶梯测试与手动档位入口）
   const [config] = useState(() => parseFieldParams(window.location.search));
@@ -62,9 +64,8 @@ export default function BladeFieldPage({
     [webgl2, prefersReducedMotion, coarsePointer, deviceMemoryGb],
   );
 
-  const [tier, setTier] = useState<QualityTier>(
-    () => config.tierOverride ?? readStoredTier() ?? autoTier,
-  );
+  const initialTier = config.tierOverride ?? readStoredTier() ?? autoTier;
+  const [tier, setTier] = useState<QualityTier>(initialTier);
   const [degradeReason, setDegradeReason] = useState<string | null>(null);
   const effectiveTier: QualityTier = webgl2 ? tier : "static";
 
@@ -87,34 +88,29 @@ export default function BladeFieldPage({
 
   // ---------- 模式机：home → transition → explore ----------
   // 动画过渡只在 balanced 且非 reduced-motion 时播放，其余直接落到 explore。
-  const cinematic = effectiveTier === "balanced" && !prefersReducedMotion;
-  const [mode, setMode] = useState<FieldMode>(initialMode);
+  const cinematic = effectiveTier === "balanced" && !prefersReducedMotion && !config.visual;
+  const [mode, setMode] = useState<FieldMode>(() =>
+    initialMode === "home" && initialTier !== "balanced" ? "explore" : initialMode,
+  );
 
   const enterExplore = useCallback(() => {
     setMode((current) => {
       if (current !== "home") return current;
       return cinematic ? "transition" : "explore";
     });
-    // 深链同步：进入探索后 URL 变为 /explore（native replaceState 避免路由重挂载 3D 场景）
-    if (window.location.pathname === "/") {
-      window.history.replaceState(null, "", `/explore${window.location.search}`);
+    // Router 与体验状态一起更新；同一组件类型会保留 Canvas、placements 和相机状态。
+    if (window.location.pathname !== "/explore") {
+      navigate(`/explore${window.location.search}`, { state: { fromHome: true } });
     }
-  }, [cinematic]);
+  }, [cinematic, navigate]);
 
-  // Escape：home 等价 ENTER；explore 中关闭选中卡
+  // 选中卡片的 Escape 由卡片自身处理。不要在页面级注册全局 Escape 监听器：
+  // 路由切换期间旧 Home 实例可能短暂存活，从而误把关闭卡片再次导航。
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      setSelectedSlug((selected) => {
-        if (selected) return null;
-        enterExplore();
-        return selected;
-      });
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [enterExplore]);
+  const dismissSelection = useCallback(() => {
+    setSelectedSlug(null);
+    setMode("explore");
+  }, []);
 
   // ---------- 藏品列表 ----------
   const [bladeList, setBladeList] = useState<BladeSummary[] | null>(null);
@@ -187,7 +183,10 @@ export default function BladeFieldPage({
   }, [hoveredSlug]);
 
   // 03：选中进入"发现名剑"状态（不直接跳详情页），INSPECT 才导航
-  const handleSelect = useCallback((slug: string) => setSelectedSlug(slug), []);
+  const handleSelect = useCallback((slug: string) => {
+    setSelectedSlug(slug);
+    setMode("focused");
+  }, []);
   const inspectBlade = useCallback((slug: string) => navigate(`/blades/${slug}`), [navigate]);
 
   const hoveredBlade = useMemo(
@@ -223,14 +222,40 @@ export default function BladeFieldPage({
   }, [selectedSlug]);
 
   const render3d = webgl2 && effectiveTier !== "static" && !listError;
-  const exploring = mode === "explore";
+  const exploring = mode === "explore" || mode === "focused";
+  const focused = mode === "focused";
+  const selectedArtifactBlade = useMemo(
+    () => artifactBlades.find((blade) => blade.slug === selectedSlug),
+    [artifactBlades, selectedSlug],
+  );
+  const focusTarget = useMemo(
+    () =>
+      selectedArtifactBlade
+        ? ([
+            selectedArtifactBlade.position[0],
+            selectedArtifactBlade.position[1] + 1.9,
+            selectedArtifactBlade.position[2],
+          ] as [number, number, number])
+        : undefined,
+    [selectedArtifactBlade],
+  );
 
   return (
     <main className="field-page">
-      <AppHeader badge={exploring ? EXPLORE_BADGE : HOME_BADGE} active="explore" />
+      <AppHeader
+        badge={
+          focused
+            ? { num: "03", en: "Blade Selected", zh: "发现名剑" }
+            : exploring
+              ? EXPLORE_BADGE
+              : HOME_BADGE
+        }
+        active="explore"
+        onExplore={enterExplore}
+      />
 
       {render3d ? (
-        <div className="field-stage">
+        <div className={`field-stage${focused ? " is-focused" : ""}`}>
           <SceneErrorBoundary>
             <BladeField
               tier={effectiveTier as "balanced" | "low"}
@@ -239,6 +264,7 @@ export default function BladeFieldPage({
               mode={mode}
               driftEnabled={cinematic}
               onIntroDone={() => setMode("explore")}
+              focusTarget={focusTarget}
               artifactBlades={artifactBlades}
               hoveredSlug={hoveredSlug}
               selectedSlug={selectedSlug}
@@ -254,23 +280,26 @@ export default function BladeFieldPage({
 
           {!exploring && (
             <div className={`field-hero${mode === "transition" ? " is-leaving" : ""}`}>
-              <p className="field-hero__eyebrow">An archive of legendary blades</p>
-              <h1 className="field-hero__title">UNLIMITED BLADE</h1>
-              <p className="field-hero__sub">History · Myth · Imagination</p>
+              <p className="field-hero__eyebrow">{t("hero.eyebrow")}</p>
+              <h1 className="field-hero__title">
+                <span>UNLIMITED</span>
+                <span>BLADE</span>
+              </h1>
+              <p className="field-hero__sub">{t("hero.sub")}</p>
               <button type="button" className="field-hero__enter" onClick={enterExplore}>
                 <span className="field-hero__plus" aria-hidden="true">
                   +
                 </span>
-                <span className="field-hero__enter-label">Enter the Archive</span>
+                <span className="field-hero__enter-label">{t("hero.enter")}</span>
               </button>
               <button type="button" className="field-hero__scroll" onClick={enterExplore}>
-                Scroll to begin
+                {t("hero.scroll")}
               </button>
             </div>
           )}
 
           {config.debug && hudData && (
-            <div className="field-hud" aria-label="Scene metrics">
+            <div className="field-hud" aria-label={t("field.sceneMetrics")}>
               <p>
                 tier <strong>{hudData.tier}</strong>
                 {degradeReason && <span title="degraded"> ↓{degradeReason}</span>} · inst{" "}
@@ -281,25 +310,29 @@ export default function BladeFieldPage({
             </div>
           )}
 
-          {exploring && bladeList && (
+          {exploring && bladeList && !focused && (
             <FilterPanel blades={bladeList} filter={filter} onChange={setFilter} />
           )}
 
           {exploring && (
             <>
-              <Compass heading={heading} />
+              {!focused && <Compass heading={heading} />}
 
-              <p className="field-hints">
-                {coarsePointer ? (
-                  <>
-                    <b>Drag</b> to look · <b>Tap</b> to select
-                  </>
-                ) : (
-                  <>
-                    <b>WASD</b> move · <b>Mouse</b> look · <b>Click</b> select
-                  </>
-                )}
-              </p>
+              {!focused && (
+                <p className="field-hints">
+                  {coarsePointer ? (
+                    <>
+                      <b>{t("field.drag")}</b> {t("field.look")} · <b>{t("field.tap")}</b>{" "}
+                      {t("field.select")}
+                    </>
+                  ) : (
+                    <>
+                      <b>WASD</b> {t("field.move")} · <b>{t("field.mouse")}</b> {t("field.look")} ·{" "}
+                      <b>{t("field.click")}</b> {t("field.select")}
+                    </>
+                  )}
+                </p>
+              )}
 
               {hoveredBlade && !selectedBlade && anchor && (
                 <div
@@ -325,12 +358,21 @@ export default function BladeFieldPage({
               {selectedBlade && (
                 <>
                   <div className="field-focus-dim" />
-                  <article className="field-selected-card" aria-label="Selected blade">
+                  <article
+                    className="field-selected-card"
+                    aria-label={t("field.selectedBlade")}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.stopPropagation();
+                        dismissSelection();
+                      }
+                    }}
+                  >
                     <button
                       type="button"
                       className="field-selected-card__close"
-                      aria-label="Back to exploration"
-                      onClick={() => setSelectedSlug(null)}
+                      aria-label={t("field.backExplore")}
+                      onClick={dismissSelection}
                     >
                       ✕
                     </button>
@@ -349,13 +391,13 @@ export default function BladeFieldPage({
                       className="field-selected-card__cta"
                       onClick={() => inspectBlade(selectedBlade.slug)}
                     >
-                      Inspect Blade →
+                      {t("field.inspect")}
                     </button>
                   </article>
                 </>
               )}
 
-              <ul className="field-artifact-buttons" aria-label="Artifact blades">
+              <ul className="field-artifact-buttons" aria-label={t("field.artifacts")}>
                 {visibleArtifactBlades.map((blade) => (
                   <li key={blade.slug}>
                     <button
@@ -377,24 +419,26 @@ export default function BladeFieldPage({
                     className="field-reset"
                     onClick={() => window.dispatchEvent(new Event("field:reset-camera"))}
                   >
-                    Reset view
+                    {t("field.resetView")}
                   </button>
                 </li>
               </ul>
 
-              <nav className="field-tiers" aria-label="Quality tier">
-                {(["balanced", "low", "static"] as const).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    className={effectiveTier === option ? "is-active" : ""}
-                    aria-pressed={effectiveTier === option}
-                    onClick={() => selectTier(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </nav>
+              {config.debug && (
+                <nav className="field-tiers" aria-label={t("field.quality")}>
+                  {["balanced", "low", "static"].map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={effectiveTier === option ? "is-active" : ""}
+                      aria-pressed={effectiveTier === option}
+                      onClick={() => selectTier(option as QualityTier)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </nav>
+              )}
             </>
           )}
         </div>

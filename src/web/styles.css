@@ -1,9 +1,9 @@
 /* Unlimited Blade Works — 视觉系统 V0.1（黑金博物馆 / 衬线标题 / 克制 UI） */
 
 :root {
-  --bg-0: #060708;
-  --bg-1: #0b0d10;
-  --surface: rgba(10, 12, 15, 0.82);
+  --bg-0: #030507;
+  --bg-1: #080a0d;
+  --surface: rgba(5, 7, 9, 0.84);
   --surface-solid: #101318;
   --line: #262a31;
   --line-gold: rgba(201, 168, 108, 0.38);
@@ -104,6 +104,9 @@ button:focus-visible {
   align-items: baseline;
   gap: 0.7rem;
   line-height: 1.2;
+  padding: 0.42rem 0.62rem;
+  border: 1px solid rgba(201, 168, 108, 0.28);
+  background: rgba(4, 5, 6, 0.32);
 }
 
 .app-header__num {
@@ -152,9 +155,66 @@ button:focus-visible {
   color: var(--gold);
 }
 
-.app-header__nav span[aria-disabled] {
-  opacity: 0.45;
-  cursor: default;
+.app-header__locale {
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  min-width: 2.4rem;
+}
+
+.app-header__locale:hover,
+.app-header__locale:focus-visible {
+  border: 0;
+  color: var(--gold-bright);
+}
+
+/* ---------- Collections / Timeline / About ---------- */
+
+.archive-section-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 50% 25%, rgba(111, 76, 42, 0.24), transparent 38%),
+    var(--bg-0);
+}
+
+.archive-section-page__content {
+  min-height: 100vh;
+  width: min(46rem, calc(100% - 3rem));
+  margin: 0 auto;
+  padding: 30vh 0 5rem;
+  text-align: center;
+}
+
+.archive-section-page__eyebrow {
+  color: var(--gold);
+  letter-spacing: 0.32em;
+  font-size: 0.7rem;
+}
+
+.archive-section-page__content h1 {
+  margin: 1rem 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.archive-section-page__content p:not(.archive-section-page__eyebrow) {
+  color: var(--muted);
+  margin: 0 auto 2rem;
+  max-width: 34rem;
+}
+
+.archive-section-page__content a {
+  display: inline-block;
+  border-bottom: 1px solid var(--line-gold);
+  padding: 0.3rem 0;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
 }
 
 /* ---------- 首页 Hero（01 HOME / 剑之荒原） ---------- */
@@ -165,12 +225,13 @@ button:focus-visible {
   z-index: 10;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
-  gap: 1.05rem;
+  padding-top: 16vh;
+  gap: 0.82rem;
   text-align: center;
   pointer-events: none;
-  background: radial-gradient(ellipse at center 62%, transparent 34%, rgba(4, 5, 6, 0.6) 100%);
+  background: radial-gradient(ellipse at center 55%, transparent 28%, rgba(3, 4, 5, 0.58) 100%);
   transition: opacity 0.9s ease;
 }
 
@@ -190,13 +251,18 @@ button:focus-visible {
 .field-hero__title {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: clamp(2.8rem, 8.5vw, 6rem);
-  line-height: 1.04;
-  letter-spacing: 0.16em;
-  text-indent: 0.16em;
+  font-size: clamp(2.5rem, 4.3vw, 4.8rem);
+  line-height: 0.98;
+  letter-spacing: 0.18em;
+  text-indent: 0.18em;
+  max-width: 40vw;
   margin: 0;
   text-shadow: 0 0 34px rgba(201, 168, 108, 0.22);
   animation: field-hero-fade 1.7s ease 1.2s both;
+}
+
+.field-hero__title span {
+  display: block;
 }
 
 .field-hero__sub {
@@ -319,6 +385,7 @@ button:focus-visible {
   position: relative;
   flex: 1;
   min-height: 0;
+  background: #050607;
 }
 
 .field-hud {
@@ -348,11 +415,11 @@ button:focus-visible {
   top: var(--header-h);
   bottom: 0;
   z-index: 15;
-  width: 15.5rem;
+  width: min(18vw, 16rem);
   display: flex;
   flex-direction: column;
   padding: 1.2rem 1.3rem 1.1rem;
-  background: linear-gradient(to right, rgba(6, 7, 9, 0.9), rgba(6, 7, 9, 0.62) 82%, transparent);
+  background: linear-gradient(to right, rgba(3, 4, 6, 0.9), rgba(3, 4, 6, 0.58) 78%, transparent);
   font-size: 0.78rem;
 }
 
@@ -517,41 +584,51 @@ button:focus-visible {
 
 .field-compass {
   position: absolute;
-  top: calc(var(--header-h) + 0.4rem);
-  right: 1.4rem;
+  top: calc(var(--header-h) + 0.25rem);
+  left: 50%;
+  right: auto;
   z-index: 15;
-  width: 4.6rem;
-  height: 4.6rem;
+  width: 9.5rem;
+  height: 1.5rem;
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
 .field-compass__ring {
   position: absolute;
   inset: 0;
-  border: 1px solid rgba(201, 168, 108, 0.22);
-  border-radius: 50%;
+  border-top: 1px solid rgba(201, 168, 108, 0.25);
+  border-bottom: 1px solid rgba(201, 168, 108, 0.18);
   transition: transform 0.3s ease-out;
 }
 
 .field-compass__pt {
   position: absolute;
-  left: 50%;
-  top: 50%;
   color: var(--muted);
   font-size: 0.62rem;
   letter-spacing: 0;
-  transform: translate(-50%, -50%) rotate(var(--a)) translateY(-1.75rem) rotate(calc(-1 * var(--a)));
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .field-compass__pt.is-north {
+  left: 50%;
   color: var(--gold-bright);
   font-size: 0.72rem;
 }
 
+.field-compass__pt.is-west {
+  left: 10%;
+}
+
+.field-compass__pt.is-east {
+  left: 90%;
+}
+
 .field-compass__sun {
   position: absolute;
-  right: -0.55rem;
-  top: -0.55rem;
+  right: -1.35rem;
+  top: 0.1rem;
   color: var(--gold);
   font-size: 0.85rem;
   text-shadow: 0 0 10px rgba(201, 168, 108, 0.6);
@@ -561,8 +638,9 @@ button:focus-visible {
 
 .field-hints {
   position: absolute;
-  right: 1.5rem;
+  left: 50%;
   bottom: 1.3rem;
+  transform: translateX(-50%);
   z-index: 15;
   color: var(--muted);
   font-size: 0.66rem;
@@ -628,10 +706,11 @@ button:focus-visible {
 
 .field-selected-card {
   position: absolute;
-  left: 17rem;
-  top: calc(var(--header-h) + 1.2rem);
+  left: clamp(1.5rem, 3.6vw, 4rem);
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 16;
-  width: 19rem;
+  width: min(22vw, 20rem);
   background: var(--surface);
   border: 1px solid var(--line);
   border-top: 1px solid var(--line-gold);
@@ -715,6 +794,11 @@ button:focus-visible {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.field-stage.is-focused .field-artifact-buttons {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .field-artifact-buttons button {

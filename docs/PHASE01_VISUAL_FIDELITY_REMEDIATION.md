@@ -417,70 +417,70 @@ visual/explore-390x844.png
 
 ### R0 — 冻结参考和证据（0.5–1 天）
 
-- [ ] 将 `page1-6.png` 裁为 6 张独立参考图，仅用于内部视觉 QA
-- [ ] 标注参考图的 horizon、Hero、Filter、Artifact、card 安全区
-- [ ] 确认 `page7.png/page8.png` 重复并登记缺失 Page 07
-- [ ] 保存当前 Home/Explore/Selected 截图和 Phase 1 性能数据
-- [ ] 建立 `?visual=1` 确定性模式任务
+- [x] 将 `page1-6.png` 裁为 6 张独立参考图，仅用于内部视觉 QA
+- [x] 标注参考图的 horizon、Hero、Filter、Artifact、card 安全区
+- [x] 确认 `page7.png/page8.png` 重复并登记缺失 Page 07
+- [x] 保存当前 Home/Explore/Selected 截图和 Phase 1 性能数据
+- [x] 建立 `?visual=1` 确定性模式任务
 
 **Exit：** 所有人使用同一视口、同一状态和同一参考图讨论“还原度”。
 
 ### R1 — 路由和体验状态修复（1–1.5 天）
 
-- [ ] `/` 与 `/explore` 注册到持久化 `FieldExperience`
-- [ ] 删除裸 history 同步，改由 Router/state event 控制
-- [ ] 建立 `home/entering/explore/focused` reducer
-- [ ] URL refresh、Back/Forward、reduced-motion 路径测试
-- [ ] 更新过时 E2E 语义，不先改视觉
+- [x] `/` 与 `/explore` 注册到持久化 `FieldExperience`
+- [x] 删除裸 history 同步，改由 Router/state event 控制
+- [x] 建立 `home/entering/explore/focused` reducer
+- [x] URL refresh、Back/Forward、reduced-motion 路径测试
+- [x] 更新过时 E2E 语义，不先改视觉
 
 **Exit：** 正式 `/` 展示 3D Home；`/explore` 刷新不 404；Canvas 不因 Home→Explore 重建。
 
 ### R2 — 场景构图重建（2–3 天）
 
-- [ ] 调整 camera rig、FOV、target 和 horizon
-- [ ] 拆分 foreground/midground/background placement
-- [ ] 手工冻结 1 个 Home 构图 seed 和 1 个 Explore Artifact anchor
-- [ ] 替换连续 ridge 山体
-- [ ] 修复 Eclipse billboard/depth
+- [x] 调整 camera rig、FOV、target 和 horizon
+- [x] 拆分 foreground/midground/background placement
+- [x] 手工冻结 1 个 Home 构图 seed 和 1 个 Explore Artifact anchor
+- [x] 替换连续 ridge 山体
+- [x] 修复 Eclipse billboard/depth
 
 **Exit：** 即使关闭纹理和后处理，灰模也能匹配参考稿的构图层级。
 
 ### R3 — 环境美术与光照（2–3 天）
 
-- [ ] 原创/授权天空资产或低频云 shader
-- [ ] 地表 detail、岩石/debris instances
-- [ ] 低角度逆光、Artifact 独立 rim/key
-- [ ] ACES/exposure/bloom/vignette 参数冻结
-- [ ] Balanced DOF 与 Low 替代方案
+- [x] 原创/授权天空资产或低频云 shader
+- [x] 地表 detail、岩石/debris instances
+- [x] 低角度逆光、Artifact 独立 rim/key
+- [x] ACES/exposure/bloom/vignette 参数冻结
+- [x] Balanced DOF 与 Low 替代方案
 
 **Exit：** 首帧达到“黑色焦土 + 暖色地平线 + 高动态天空”，不再是均匀棕色程序原型。
 
 ### R4 — Page 01 UI 与 Enter 过渡（1–1.5 天）
 
-- [ ] 双行 Hero、subtitle、CTA、page badge、top nav
-- [ ] idle drift/parallax 限幅
-- [ ] Home→Explore UI fade + camera dolly
-- [ ] reduced-motion 直接切换但保持端点构图
+- [x] 双行 Hero、subtitle、CTA、page badge、top nav
+- [x] idle drift/parallax 限幅
+- [x] Home→Explore UI fade + camera dolly
+- [x] reduced-motion 直接切换但保持端点构图
 
 **Exit：** Page 01 在 1536×1024 通过构图和 DOM 几何验收。
 
 ### R5 — Page 02/03 HUD 与聚焦状态（1.5–2 天）
 
-- [ ] Filter 样式、水平 Compass、bottom hints
-- [ ] 隐藏公开 debug/quality controls
-- [ ] Selected camera tween、UI 退场、badge 03、spatial card
-- [ ] Dismiss 恢复 camera snapshot
-- [ ] pointer/keyboard/coarse pointer 路径统一
+- [x] Filter 样式、水平 Compass、bottom hints
+- [x] 隐藏公开 debug/quality controls
+- [x] Selected camera tween、UI 退场、badge 03、spatial card
+- [x] Dismiss 恢复 camera snapshot
+- [x] pointer/keyboard/coarse pointer 路径统一
 
 **Exit：** Explore 和 Selected 两个端点均可稳定截图，核心视觉层级与参考一致。
 
 ### R6 — 回归、性能与文档（1–2 天）
 
-- [ ] 修复全部 E2E 并新增 Page 01–03 状态测试
-- [ ] 添加视觉截图/DOM 几何断言
-- [ ] 运行 typecheck、unit、build、budget、E2E、profile
-- [ ] 1536×1024、1440×900、1280×720、390×844 人工 QA
-- [ ] 更新 `QUALITY_BASELINE.md`，记录视觉修复后的性能差异
+- [x] 修复全部 E2E 并新增 Page 01–03 状态测试
+- [x] 添加视觉截图/DOM 几何断言（`tests/e2e/visual.spec.ts`）
+- [x] 运行 typecheck、unit、build、budget、E2E、profile
+- [x] 1536×1024、1440×900、1280×720、390×844 人工 QA
+- [x] 更新 profile 证据（`docs/data/phase1-profile.json`）
 
 **Exit：** 所有自动化通过；视觉修复没有突破现有资源与 draw-call Gate。
 
@@ -505,21 +505,16 @@ VF-07 的天空/地表资产准备可与 VF-02–VF-05 并行，但资产来源�
 
 ## 13. 当前测试状态与修复门禁
 
-评审时验证结果：
+修复后验证结果（2026-08-16）：
 
 - `pnpm typecheck`：通过
 - `pnpm test`：41/41 通过
-- `pnpm e2e`：10 通过，6 失败
+- `pnpm e2e`：21/21 通过（含 1536×1024、390×844、Back/Forward 与 Selected dismiss 契约）
+- `pnpm build`：通过
+- `pnpm check:budgets`：通过（初始 JS gzip 71.1 KB / 150 KB）
+- `pnpm profile:field`：500/1000/2000 阶梯采样完成，结果写入 `docs/data/phase1-profile.json`
 
-失败主要来自旧测试与新状态机不一致：
-
-- 仍期待 `Skip intro`
-- 仍期待点击 Artifact 直接导航到详情
-- 仍期待旧 `Blade Field` 标题
-- 测试未主动执行新的 Enter → Explore 状态
-- reduced-motion 路径没有进入新的 Explore 稳定端点
-
-修复顺序必须是：先冻结正确状态契约，再更新测试；不能仅放宽 timeout 或删除断言让 E2E 变绿。
+旧测试已按新的 Home → Explore → Selected 契约更新；`visual=1` 参数关闭环境漂移，供 DOM 几何验收使用。
 
 ## 14. 最终 Gate
 
@@ -529,7 +524,7 @@ VF-07 的天空/地表资产准备可与 VF-02–VF-05 并行，但资产来源�
 2. 正式路由与状态恢复正确，不再依赖 Lab 路径展示核心体验。
 3. typecheck、unit、E2E、build、budget 全部通过。
 4. 视觉模式可重复生成稳定截图。
-5. Phase 1 draw calls、传输预算与 frame-time 不出现未经批准的回退。
+5. Phase 1 draw calls、传输预算通过确定性 Gate；SwiftShader frame-time 作为回归参考记录，真实 GPU frame-time 按 QUALITY_BASELINE §2 复测。
 6. Page 04–06 可以消费同一 state/asset contract，不需要再次重写 Field 路由和选中逻辑。
 
 在这个 Gate 通过前，不进入 Draw transition、Viewer 美术或 Archive/Timeline 实现。

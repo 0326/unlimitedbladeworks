@@ -2,14 +2,14 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Terrain } from "./Terrain";
-import { Eclipse, MountainRing, SkyDome } from "./Sky";
+import { CloudLayer, Eclipse, MountainRing, SkyDome } from "./Sky";
 import { DustParticles } from "./DustParticles";
-import { AmbientBladeInstances } from "./AmbientBladeInstances";
+import { AmbientBladeInstances, ForegroundBladeInstances } from "./AmbientBladeInstances";
 import { ArtifactBlades, type ArtifactBladeInfo } from "./ArtifactBlade";
 import { FieldCamera, type FieldMode } from "./FieldCamera";
 import { QualitySampler } from "./QualitySampler";
 import { DebugBridge } from "./DebugBridge";
-import { generatePlacements } from "./placement";
+import { generateForegroundPlacements, generatePlacements } from "./placement";
 import { QUALITY_PARAMS, type QualityTier } from "./quality";
 import { CAMERA_INTRO_START, PALETTE } from "./layout";
 import type { FieldDebugData } from "./debug";
@@ -44,6 +44,7 @@ export interface BladeFieldProps {
   onDegrade: (reason: string) => void;
   onHudData: (data: FieldDebugData) => void;
   onHeading?: (radians: number) => void;
+  focusTarget?: [number, number, number];
   /** hover 标签锚点（世界坐标 → 屏幕像素，~15Hz）。 */
   onAnchor?: (anchor: LabelAnchor | null) => void;
 }
@@ -75,13 +76,19 @@ export function BladeField(props: BladeFieldProps) {
     () => generatePlacements({ seed: FIELD_SEED, count: instanceCount }),
     [instanceCount],
   );
+  const foregroundPlacements = useMemo(() => generateForegroundPlacements(), []);
 
   return (
     <Canvas
       shadows={params.shadows}
       dpr={dpr}
       frameloop={frameloop}
-      gl={{ antialias: params.antialias, powerPreference: "high-performance" }}
+      gl={{
+        antialias: params.antialias,
+        powerPreference: "high-performance",
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 1.08,
+      }}
       camera={{
         fov: 55,
         near: 0.1,
@@ -90,13 +97,13 @@ export function BladeField(props: BladeFieldProps) {
       }}
       onPointerMissed={() => props.onHoverChange(null)}
     >
-      <color attach="background" args={[PALETTE.fog]} />
+      <color attach="background" args={[PALETTE.background]} />
       <fog attach="fog" args={[PALETTE.fog, params.fogNear, params.fogFar]} />
 
-      <hemisphereLight args={["#3d4250", "#241c12", 0.6]} />
+      <hemisphereLight args={["#303644", "#0b0908", 0.34]} />
       <directionalLight
-        position={[46, 52, -28]}
-        intensity={1.7}
+        position={[30, 30, -65]}
+        intensity={2.25}
         color={PALETTE.sun}
         castShadow={params.shadows}
         shadow-mapSize={[1024, 1024]}
@@ -106,12 +113,24 @@ export function BladeField(props: BladeFieldProps) {
         shadow-camera-bottom={-40}
         shadow-camera-far={180}
       />
+      <pointLight
+        position={[10, 6, 5]}
+        intensity={2.4}
+        distance={18}
+        decay={2}
+        color={PALETTE.sun}
+      />
+      <pointLight position={[0, 10, 14]} intensity={0.55} distance={34} decay={2} color="#b88d5b" />
 
       <SkyDome />
+      {tier === "balanced" && <CloudLayer />}
       <Eclipse />
       <MountainRing />
       <Terrain receiveShadow={params.shadows} />
       <AmbientBladeInstances placements={placements} />
+      {tier === "balanced" && (
+        <ForegroundBladeInstances placements={foregroundPlacements} castShadow={params.shadows} />
+      )}
       {params.particles && params.particleCount > 0 && (
         <DustParticles count={params.particleCount} />
       )}
@@ -130,6 +149,7 @@ export function BladeField(props: BladeFieldProps) {
         driftEnabled={props.driftEnabled}
         onIntroDone={props.onIntroDone}
         onHeading={props.onHeading}
+        focusTarget={props.focusTarget}
       />
       <QualitySampler
         active={tier === "balanced" && mode === "explore"}
@@ -154,7 +174,7 @@ export function BladeField(props: BladeFieldProps) {
       )}
       {params.postProcessing && (
         <Suspense fallback={null}>
-          <FieldEffects />
+          <FieldEffects depthOfField={params.depthOfField} />
         </Suspense>
       )}
     </Canvas>

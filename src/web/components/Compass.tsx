@@ -5,20 +5,15 @@
 export function Compass({ heading }: { heading: number }) {
   const deg = (-heading * 180) / Math.PI;
   const points = [
-    { label: "N", angle: 0 },
-    { label: "E", angle: 90 },
-    { label: "S", angle: 180 },
-    { label: "W", angle: 270 },
-  ];
+    { label: "W", position: "west" },
+    { label: "N", position: "north" },
+    { label: "E", position: "east" },
+  ] as const;
   return (
     <div className="field-compass" aria-hidden="true">
-      <div className="field-compass__ring" style={{ transform: `rotate(${deg}deg)` }}>
+      <div className="field-compass__ring" style={{ transform: `rotate(${deg * 0.12}deg)` }}>
         {points.map((p) => (
-          <span
-            key={p.label}
-            className={`field-compass__pt${p.label === "N" ? " is-north" : ""}`}
-            style={{ "--a": `${p.angle}deg` } as React.CSSProperties}
-          >
+          <span key={p.label} className={`field-compass__pt is-${p.position}`}>
             {p.label}
           </span>
         ))}

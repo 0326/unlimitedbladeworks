@@ -1,6 +1,6 @@
 import type { QualityTier } from "./quality";
 
-/** Field 页 URL 参数（?tier=&instances=&debug=），用于测试阶梯与手动档位。 */
+/** Field 页 URL 参数（?tier=&instances=&debug=&visual=），用于测试阶梯与手动档位。 */
 export const TIERS: readonly QualityTier[] = ["balanced", "low", "static"];
 export const INSTANCE_MIN = 100;
 export const INSTANCE_MAX = 4000;
@@ -9,6 +9,7 @@ export interface FieldParamsConfig {
   tierOverride: QualityTier | null;
   instancesOverride: number | null;
   debug: boolean;
+  visual: boolean;
 }
 
 export function parseFieldParams(search: string): FieldParamsConfig {
@@ -22,9 +23,11 @@ export function parseFieldParams(search: string): FieldParamsConfig {
     : null;
 
   const debugRaw = params.get("debug");
+  const visualRaw = params.get("visual");
   return {
     tierOverride,
     instancesOverride,
     debug: debugRaw === "1" || debugRaw === "true",
+    visual: visualRaw === "1" || visualRaw === "true",
   };
 }

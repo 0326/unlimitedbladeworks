@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { BladeSummary } from "../lib/api";
 import { EMPTY_FILTER, type FieldFilter } from "../lib/fieldFilter";
+import { useI18n } from "../lib/i18n-context";
 
 const CATEGORY_ORDER = ["historical", "legendary", "mythical", "fictional"] as const;
 
@@ -21,6 +22,7 @@ export function FilterPanel({
   filter: FieldFilter;
   onChange: (next: FieldFilter) => void;
 }) {
+  const { t } = useI18n();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const categoryCounts = useMemo(() => {
@@ -45,8 +47,8 @@ export function FilterPanel({
     setOpenGroups((current) => ({ ...current, [key]: !current[key] }));
 
   return (
-    <aside className="filter-panel" aria-label="Field filters">
-      <h2 className="filter-panel__title">Explore the Field</h2>
+    <aside className="filter-panel" aria-label={t("field.filters")}>
+      <h2 className="filter-panel__title">{t("field.explore")}</h2>
 
       <ul className="filter-panel__cats">
         <li>
@@ -55,7 +57,7 @@ export function FilterPanel({
             className={`filter-panel__cat${filter.category === null ? " is-active" : ""}`}
             onClick={() => onChange({ ...filter, category: null })}
           >
-            All Blades
+            {t("field.allBlades")}
             <span className="filter-panel__count">{blades.length}</span>
           </button>
         </li>
@@ -68,7 +70,7 @@ export function FilterPanel({
                 onChange({ ...filter, category: filter.category === category ? null : category })
               }
             >
-              {category}
+              {t(`field.${category}`)}
               <span className="filter-panel__count">{categoryCounts.get(category) ?? 0}</span>
             </button>
           </li>
@@ -102,11 +104,11 @@ export function FilterPanel({
               aria-expanded={!!openGroups[name]}
               onClick={() => toggleGroup(name)}
             >
-              {name}
+              {t(`field.${name}`)}
             </button>
             {openGroups[name] && (
               <div className="filter-group__body">
-                <p className="filter-group__empty">Available with the full archive</p>
+                <p className="filter-group__empty">{t("field.availableLater")}</p>
               </div>
             )}
           </div>
@@ -114,7 +116,7 @@ export function FilterPanel({
       </div>
 
       <button type="button" className="filter-panel__reset" onClick={() => onChange(EMPTY_FILTER)}>
-        Reset Filters
+        {t("field.resetFilters")}
       </button>
     </aside>
   );
@@ -135,10 +137,11 @@ function FilterGroup({
   onToggle: () => void;
   onSelect: (value: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="filter-group">
       <button type="button" className="filter-group__head" aria-expanded={open} onClick={onToggle}>
-        {name}
+        {t(`field.${name}`)}
       </button>
       {open && (
         <div className="filter-group__body">

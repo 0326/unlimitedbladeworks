@@ -44,6 +44,8 @@ export function ArtifactBlades({
         const variant = variants[ARTIFACT_VARIANT[blade.slug] ?? 0];
         if (!variant) return null;
         const highlighted = hovered || selected;
+        const presentationScale =
+          (blade.slug === "calibration-longsword" ? 4.1 : 3.2) * (selected ? 1.08 : 1);
         const handlers = dimmed
           ? {}
           : {
@@ -61,27 +63,38 @@ export function ArtifactBlades({
               },
             };
         return (
-          <group key={blade.slug} position={blade.position}>
-            <mesh geometry={variant.geometry} scale={2.1} castShadow={castShadow} {...handlers}>
-              <meshStandardMaterial
-                color={PALETTE.artifactSteel}
-                metalness={0.95}
-                roughness={0.25}
-                flatShading
-                transparent={dimmed}
-                opacity={dimmed ? 0.18 : 1}
-                emissive={highlighted ? PALETTE.accent : "#000000"}
-                emissiveIntensity={selected ? 0.6 : hovered ? 0.35 : 0}
-              />
-            </mesh>
-
-            {/* 拾取碰撞柱：不写颜色/深度，仅参与 raycast */}
-            {!dimmed && (
-              <mesh position={[0, 2.2, 0]} {...handlers}>
-                <cylinderGeometry args={[1.3, 1.3, 4.6, 8]} />
-                <meshBasicMaterial transparent opacity={0} colorWrite={false} depthWrite={false} />
+          <group
+            key={blade.slug}
+            position={blade.position}
+            {...(selected ? { "data-selected": "true" } : {})}
+          >
+            <group scale={presentationScale}>
+              <mesh geometry={variant.geometry} castShadow={castShadow} {...handlers}>
+                <meshStandardMaterial
+                  color={highlighted ? "#d6c18e" : PALETTE.artifactSteel}
+                  metalness={0.86}
+                  roughness={0.22}
+                  flatShading
+                  transparent={dimmed}
+                  opacity={dimmed ? 0.18 : 1}
+                  emissive={highlighted ? PALETTE.accent : "#000000"}
+                  emissiveIntensity={selected ? 0.28 : hovered ? 0.18 : 0}
+                />
               </mesh>
-            )}
+
+              {/* 拾取碰撞柱：不写颜色/深度，仅参与 raycast */}
+              {!dimmed && (
+                <mesh position={[0, 2.2, 0]} {...handlers}>
+                  <cylinderGeometry args={[1.3, 1.3, 4.6, 8]} />
+                  <meshBasicMaterial
+                    transparent
+                    opacity={0}
+                    colorWrite={false}
+                    depthWrite={false}
+                  />
+                </mesh>
+              )}
+            </group>
 
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
               <torusGeometry args={[1.6, 0.035, 8, 44]} />

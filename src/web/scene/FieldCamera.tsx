@@ -3,14 +3,22 @@ import type { ComponentRef } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import { CAMERA_INTRO_END, CAMERA_INTRO_START, CAMERA_TARGET, INTRO_DURATION_MS } from "./layout";
+import {
+  CAMERA_HOME_TARGET,
+  CAMERA_INTRO_END,
+  CAMERA_INTRO_START,
+  CAMERA_TARGET,
+  INTRO_DURATION_MS,
+} from "./layout";
 
-export type FieldMode = "home" | "transition" | "explore";
+export type FieldMode = "home" | "transition" | "explore" | "focused";
 
 /** WASD/方向键平移速度（单位/秒）与活动半径。 */
 const PAN_SPEED = 10;
 const PAN_RADIUS = 46;
 const HEADING_REPORT_MS = 150;
+const FOCUS_DURATION_MS = 760;
+const FOCUS_OFFSET = new THREE.Vector3(5.5, 4.1, 10.5);
 
 /**
  * 相机三态机（设计稿 01→02）：
@@ -24,11 +32,13 @@ export function FieldCamera({
   driftEnabled,
   onIntroDone,
   onHeading,
+  focusTarget,
 }: {
   mode: FieldMode;
   driftEnabled: boolean;
   onIntroDone: () => void;
   onHeading?: (radians: number) => void;
+  focusTarget?: [number, number, number];
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls>>(null);
   const camera = useThree((s) => s.camera);
@@ -36,6 +46,14 @@ export function FieldCamera({
   const driftMs = useRef(0);
   const keys = useRef(new Set<string>());
   const lastHeadingAt = useRef(0);
+  const focusElapsedMs = useRef(0);
+  const focusStartPosition = useRef(new THREE.Vector3());
+  const focusStartTarget = useRef(new THREE.Vector3());
+  const focusEndPosition = useRef(new THREE.Vector3());
+  const focusEndTarget = useRef(new THREE.Vector3());
+  const transitionStartPosition = useRef(new THREE.Vector3());
+  const transitionEndPosition = useRef(CAMERA_INTRO_END.clone());
+  const previousMode = useRef<FieldMode>(mode);
 
   useEffect(() => {
     window.addEventListener("field:reset-camera", resetControls);
@@ -79,21 +97,42 @@ export function FieldCamera({
     if (mode === "home") {
       driftMs.current = 0;
       camera.position.copy(CAMERA_INTRO_START);
-      camera.lookAt(CAMERA_TARGET);
+      camera.lookAt(CAMERA_HOME_TARGET);
     } else if (mode === "transition") {
       elapsedMs.current = 0;
-    } else {
-      // explore：落位并保存为 reset 基准
-      camera.position.copy(CAMERA_INTRO_END);
-      camera.lookAt(CAMERA_TARGET);
+      // Capture the actual resting position (including idle drift) and only dolly
+      // toward the existing Explore position. The look target never jumps.
+      transitionStartPosition.current.copy(camera.position);
+    } else if (mode === "explore") {
+      // 关闭 Selected 后回到进入聚焦前的镜头，而不是把用户探索位置重置掉。
+      const returningFromFocus = previousMode.current === "focused";
+      const completedDolly = previousMode.current === "transition";
+      if (returningFromFocus) {
+        camera.position.copy(focusStartPosition.current);
+        camera.lookAt(focusStartTarget.current);
+      } else if (!completedDolly) {
+        camera.position.copy(CAMERA_INTRO_END);
+        camera.lookAt(CAMERA_TARGET);
+      }
       const controls = controlsRef.current;
       if (controls) {
-        controls.target.copy(CAMERA_TARGET);
+        controls.target.copy(returningFromFocus ? focusStartTarget.current : CAMERA_TARGET);
         controls.update();
         controls.saveState();
       }
+    } else if (mode === "focused") {
+      // Selected 状态从当前 Explore 相机开始，不重置视角再跳到目标。
+      focusElapsedMs.current = 0;
+      focusStartPosition.current.copy(camera.position);
+      focusStartTarget.current.copy(controlsRef.current?.target ?? CAMERA_TARGET);
+      const target = focusTarget
+        ? new THREE.Vector3(focusTarget[0], focusTarget[1], focusTarget[2])
+        : CAMERA_TARGET.clone();
+      focusEndTarget.current.copy(target);
+      focusEndPosition.current.copy(target).add(FOCUS_OFFSET);
     }
-  }, [mode, camera]);
+    previousMode.current = mode;
+  }, [mode, camera, focusTarget]);
 
   useFrame((state, delta) => {
     if (mode === "home") {
@@ -106,7 +145,7 @@ export function FieldCamera({
         CAMERA_INTRO_START.y + Math.sin(t * 0.07) * 0.5,
         CAMERA_INTRO_START.z + Math.sin(t * 0.05) * 1.8,
       );
-      camera.lookAt(CAMERA_TARGET);
+      camera.lookAt(CAMERA_HOME_TARGET);
       return;
     }
 
@@ -114,9 +153,23 @@ export function FieldCamera({
       elapsedMs.current += delta * 1000;
       const k = Math.min(1, elapsedMs.current / INTRO_DURATION_MS);
       const eased = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-      camera.position.lerpVectors(CAMERA_INTRO_START, CAMERA_INTRO_END, eased);
-      camera.lookAt(CAMERA_TARGET);
+      camera.position.lerpVectors(
+        transitionStartPosition.current,
+        transitionEndPosition.current,
+        eased,
+      );
+      camera.lookAt(CAMERA_HOME_TARGET);
       if (k >= 1) onIntroDone();
+      return;
+    }
+
+    if (mode === "focused") {
+      focusElapsedMs.current += delta * 1000;
+      const k = Math.min(1, focusElapsedMs.current / FOCUS_DURATION_MS);
+      const eased = 1 - Math.pow(1 - k, 3);
+      camera.position.lerpVectors(focusStartPosition.current, focusEndPosition.current, eased);
+      const target = focusStartTarget.current.clone().lerp(focusEndTarget.current, eased);
+      camera.lookAt(target);
       return;
     }
 

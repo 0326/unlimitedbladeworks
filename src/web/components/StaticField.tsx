@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import type { BladeSummary } from "../lib/api";
+import { useI18n } from "../lib/i18n-context";
 
 /**
  * Static 降级路径（无 WebGL / 手动 Static 档 / reduced-motion 文字入口）：
@@ -14,31 +15,32 @@ export function StaticField({
   error: boolean;
   onRetry: () => void;
 }) {
+  const { t } = useI18n();
   return (
-    <section className="static-field" aria-label="Text archive">
-      <p className="static-field__eyebrow">The field is resting — text archive</p>
-      <h2 className="static-field__title">Archive Records</h2>
+    <section className="static-field" aria-label={t("detail.archive")}>
+      <p className="static-field__eyebrow">{t("field.availableLater")}</p>
+      <h2 className="static-field__title">{t("detail.archive")}</h2>
 
       {error && (
         <div className="static-field__error" role="alert">
-          <p>The archive list could not be loaded.</p>
+          <p>{t("detail.unavailable")}</p>
           <div className="error-page__actions">
             <button type="button" onClick={onRetry}>
-              Retry
+              {t("detail.retry")}
             </button>
-            <Link to="/">Back to entrance</Link>
+            <Link to="/">{t("detail.backEntrance")}</Link>
           </div>
         </div>
       )}
 
       {!error && !blades && (
         <p className="static-field__status" role="status">
-          Loading records…
+          {t("detail.loading")}
         </p>
       )}
 
       {blades && blades.length === 0 && (
-        <p className="static-field__status">No published records yet.</p>
+        <p className="static-field__status">{t("detail.noSources")}</p>
       )}
 
       {blades && blades.length > 0 && (

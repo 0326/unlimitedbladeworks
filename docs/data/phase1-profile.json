@@ -7,41 +7,41 @@
     {
       "instances": 500,
       "tier": "low",
-      "fps": 21,
-      "frameTimeMs": 47.6,
-      "calls": 19,
-      "triangles": 85692,
-      "geometries": 17,
-      "textures": 3,
-      "sampleCount": 19
+      "fps": 11.5,
+      "frameTimeMs": 87,
+      "calls": 20,
+      "triangles": 85246,
+      "geometries": 21,
+      "textures": 5,
+      "sampleCount": 18
     },
     {
       "instances": 1000,
       "tier": "low",
-      "fps": 14,
-      "frameTimeMs": 71.4,
-      "calls": 19,
-      "triangles": 150832,
-      "geometries": 17,
-      "textures": 3,
-      "sampleCount": 18
+      "fps": 8,
+      "frameTimeMs": 125,
+      "calls": 20,
+      "triangles": 149998,
+      "geometries": 21,
+      "textures": 5,
+      "sampleCount": 17
     },
     {
       "instances": 2000,
       "tier": "low",
-      "fps": 8,
-      "frameTimeMs": 125,
-      "calls": 19,
-      "triangles": 280900,
-      "geometries": 17,
-      "textures": 3,
+      "fps": 5,
+      "frameTimeMs": 200,
+      "calls": 20,
+      "triangles": 280522,
+      "geometries": 23,
+      "textures": 21,
       "sampleCount": 17
     }
   ],
   "transfer": {
-    "jsBytes": 341293,
-    "cssBytes": 2131,
-    "totalBytes": 343424,
-    "resourceCount": 10
+    "jsBytes": 348156,
+    "cssBytes": 3852,
+    "totalBytes": 352008,
+    "resourceCount": 9
   }
 }

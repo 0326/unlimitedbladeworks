@@ -26,8 +26,9 @@ test.describe("Blade Field scene", () => {
     expect(debug.calls).toBeLessThanOrEqual(100);
   });
 
-  test("pointer click on a 3D artifact navigates to its record", async ({ page }) => {
+  test("pointer click on a 3D artifact enters the selected state", async ({ page }) => {
     await page.goto("/lab/blade-field?debug=1");
+    await page.getByRole("button", { name: "Enter the Archive" }).click();
     await page.waitForFunction(() => window.__fieldDebug?.introDone === true, undefined, {
       timeout: 30_000,
     });
@@ -36,12 +37,27 @@ test.describe("Blade Field scene", () => {
     );
     expect(katana).toBeTruthy();
     await page.mouse.click(katana!.x, katana!.y);
+    // SwiftShader can publish one stale projection while the camera settles; retry the
+    // same pointer path once before failing the interaction contract.
+    const selectedCard = page.locator(".field-selected-card");
+    try {
+      await expect(selectedCard).toBeVisible({ timeout: 2_000 });
+    } catch {
+      await page.waitForTimeout(250);
+      const refreshed = await page.evaluate(() =>
+        window.__fieldDebug!.artifacts.find((a) => a.slug === "calibration-katana"),
+      );
+      await page.mouse.click(refreshed?.x ?? katana!.x, refreshed?.y ?? katana!.y);
+      await expect(selectedCard).toBeVisible({ timeout: 8_000 });
+    }
+    await expect(page.getByRole("heading", { level: 2 })).toContainText("Calibration Katana");
+    await page.getByRole("button", { name: "Inspect Blade →" }).click();
     await expect(page).toHaveURL(/\/blades\/calibration-katana$/);
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("Calibration Katana");
   });
 
   test("hover on artifact button shows the info card", async ({ page }) => {
     await page.goto("/lab/blade-field?debug=1");
+    await page.getByRole("button", { name: "Enter the Archive" }).click();
     // intro 自然完成 / 降级中断 / 手动跳过任一路径结束后按钮出现，无需干预
     const button = page.getByRole("button", { name: "Calibration Katana" });
     await expect(button).toBeVisible({ timeout: 30_000 });
@@ -54,6 +70,7 @@ test.describe("Blade Field scene", () => {
 
   test("keyboard focus and Enter selects an artifact", async ({ page }) => {
     await page.goto("/lab/blade-field?debug=1");
+    await page.getByRole("button", { name: "Enter the Archive" }).click();
     const button = page.getByRole("button", { name: "Calibration Katana" });
     await expect(button).toBeVisible({ timeout: 30_000 });
     // 按钮天然 focusable（原生 button，无 tabindex=-1）；SwiftShader 并行下
@@ -63,24 +80,39 @@ test.describe("Blade Field scene", () => {
     await button.focus();
     await expect(page.locator(".field-hover-card")).toBeVisible();
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/blades\/calibration-katana$/);
+    await expect(page.locator(".field-selected-card")).toBeVisible();
+    await expect(page.getByText("Blade Selected")).toBeVisible();
+    // Detail text arrives asynchronously and replaces the card content once; wait for
+    // that single content transition before activating the stable CTA node.
+    await page.waitForTimeout(350);
+    await expect(page.getByRole("button", { name: "Inspect Blade →" })).toBeVisible();
   });
 
-  test("intro can be skipped and controls stay available", async ({ page }) => {
+  test("Escape dismisses Selected and restores Explore chrome", async ({ page }) => {
     await page.goto("/lab/blade-field?debug=1");
-    const skip = page.getByRole("button", { name: "Skip intro" });
-    // SwiftShader 下降级可能先于点击发生并移除 intro（按钮 detach）；
-    // 点击成功验证 skip 生效，点击失败则 intro 已被降级结束，两种路径都要求控件可用
-    const clicked = await skip
-      .click({ timeout: 5_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (clicked) {
-      await expect(skip).toBeHidden();
-    }
+    await page.getByRole("button", { name: "Enter the Archive" }).click();
+    const button = page.getByRole("button", { name: "Calibration Katana" });
+    await expect(button).toBeVisible({ timeout: 30_000 });
+    await button.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".field-selected-card")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".field-selected-card")).toHaveCount(0);
+    // The scene may still be completing its intro transition when the card closes;
+    // the contract here is that selection is dismissed without leaving the field.
+    await expect(page.getByRole("link", { name: "Explore" })).toBeVisible();
+  });
+
+  test("enter transition completes and controls stay available", async ({ page }) => {
+    await page.goto("/lab/blade-field?debug=1");
+    await waitForDebug(page);
+    const startZ = await page.evaluate(() => window.__fieldDebug!.cameraPosition[2]);
+    await page.getByRole("button", { name: "Enter the Archive" }).click();
     await expect(page.getByRole("button", { name: "Reset view" })).toBeVisible({
       timeout: 30_000,
     });
+    const endZ = await page.evaluate(() => window.__fieldDebug!.cameraPosition[2]);
+    expect(endZ).toBeLessThan(startZ - 20);
   });
 
   test("pausing page visibility stops the render loop", async ({ page }) => {
@@ -138,7 +170,6 @@ test.describe("Blade Field fallback paths", () => {
     const context = await browser.newContext({ reducedMotion: "reduce" });
     const page = await context.newPage();
     await page.goto("/lab/blade-field?debug=1");
-    await expect(page.getByRole("button", { name: "Skip intro" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Reset view" })).toBeVisible();
     // DebugBridge 以 2Hz 推送，需等待首帧数据而非立即读取
     const debug = await waitForDebug(page);

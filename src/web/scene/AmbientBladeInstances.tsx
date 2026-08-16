@@ -43,6 +43,95 @@ export function AmbientBladeInstances({ placements }: { placements: BladePlaceme
   );
 }
 
+/**
+ * 前景框景剑：少量独立 mesh 用来建立参考稿要求的近景尺度和景深层次。
+ * 它们不是档案实体，也不参与 picking。
+ */
+export function ForegroundBladeInstances({
+  placements,
+  castShadow,
+}: {
+  placements: BladePlacement[];
+  castShadow: boolean;
+}) {
+  const variants = useMemo(() => getBladeVariants(), []);
+  const material = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: "#96734a",
+        metalness: 0.8,
+        roughness: 0.36,
+        flatShading: true,
+        emissive: "#241407",
+        emissiveIntensity: 0.28,
+      }),
+    [],
+  );
+  const groups = useMemo(() => {
+    const byVariant = new Map<number, BladePlacement[]>();
+    for (const placement of placements) {
+      const list = byVariant.get(placement.variant);
+      if (list) list.push(placement);
+      else byVariant.set(placement.variant, [placement]);
+    }
+    return [...byVariant.entries()];
+  }, [placements]);
+
+  return (
+    <group name="foreground-blades">
+      {groups.map(([variantIndex, list]) => {
+        const variant = variants[variantIndex];
+        if (!variant) return null;
+        return (
+          <ForegroundVariantInstances
+            key={variantIndex}
+            geometry={variant.geometry}
+            material={material}
+            placements={list}
+            castShadow={castShadow}
+          />
+        );
+      })}
+    </group>
+  );
+}
+
+function ForegroundVariantInstances({
+  geometry,
+  material,
+  placements,
+  castShadow,
+}: {
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material;
+  placements: BladePlacement[];
+  castShadow: boolean;
+}) {
+  const ref = useRef<THREE.InstancedMesh>(null!);
+
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    const dummy = new THREE.Object3D();
+    placements.forEach((placement, index) => {
+      dummy.position.set(placement.x, placement.y, placement.z);
+      dummy.rotation.set(placement.tiltX, placement.rotY, placement.tiltZ);
+      dummy.scale.setScalar(placement.scale);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(index, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [placements]);
+
+  return (
+    <instancedMesh
+      ref={ref}
+      args={[geometry, material, placements.length]}
+      castShadow={castShadow}
+      frustumCulled={false}
+    />
+  );
+}
+
 function VariantInstances({
   geometry,
   material,

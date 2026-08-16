@@ -7,6 +7,7 @@ describe("parseFieldParams", () => {
       tierOverride: null,
       instancesOverride: null,
       debug: false,
+      visual: false,
     });
   });
 
@@ -38,11 +39,12 @@ describe("parseFieldParams", () => {
   });
 
   it("parses combined parameters", () => {
-    const config = parseFieldParams("?tier=low&instances=1000&debug=1");
+    const config = parseFieldParams("?tier=low&instances=1000&debug=1&visual=1");
     expect(config).toEqual({
       tierOverride: "low",
       instancesOverride: 1000,
       debug: true,
+      visual: true,
     });
   });
 });
